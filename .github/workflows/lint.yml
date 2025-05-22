@@ -1,0 +1,37 @@
+name: lint
+
+on:
+  pull_request:
+
+jobs:
+  fmt:
+    name: Lint with cargo fmt
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Run cargo fmt
+        run: |
+          cd backend
+          cargo fmt
+          cd ../src-tauri
+          cargo fmt
+
+      - name: Commit changes
+        run: |
+          if [[ -n $(git status --porcelain) ]]; then
+            git config --global user.name 'github-actions'
+            git config --global user.email 'github-actions@github.com'
+            git add .
+            git commit -m "style: apply rustfmt"
+            git push
+          else
+            echo "No formatting changes needed."
+          fi
