@@ -19,9 +19,6 @@ jobs:
 
       - name: Run cargo fmt
         run: |
-          cd backend
-          cargo fmt
-          cd ../src-tauri
           cargo fmt
 
       - name: Commit changes
