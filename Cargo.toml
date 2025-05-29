@@ -28,4 +28,4 @@ serde = { version = "1.0.219", features = ["derive"] }
 tokio-tungstenite = { version = "0.26.2", features = ["default", "connect", "handshake", "stream", "url"] }
 tungstenite = "0.26.2"
 url = "2"
-uuid = { version = "1.16.0", features = ["v4"] }
+uuid = { version = "1.17.0", features = ["v4"] }
