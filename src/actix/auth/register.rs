@@ -1,11 +1,14 @@
-use actix_web::{HttpResponse, Responder, get, post, web};
+use actix_session::Session;
 use actix_web::http::header::ContentType;
+use actix_web::{HttpResponse, Responder, post, web};
 use diesel::dsl::insert_into;
 use diesel_async::RunQueryDsl;
 use regex::Regex;
 use serde::Deserialize;
 
 use crate::database::init::PGPool;
+use diesel::result::DatabaseErrorKind as DieselDbError;
+use diesel::result::Error as DieselError;
 
 #[derive(Deserialize)]
 struct RegisterForm {
@@ -22,19 +25,12 @@ const SPECIAL_REGEX: &str = "[^a-zA-Z0-9]";
 const EMAIL_REGEX: &str = r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$";
 const PHONE_NUMBER_REGEX: &str = r"^\+?[0-9]{7,15}$";
 
-#[get("/register")]
-pub async fn get_register() -> impl Responder {
-    // IMPORTANT: do not handle registration through a GET request, only use POST for submitting data
-    HttpResponse::Ok().body("hit get-register, serve register page here")
-}
-
 #[post("/register")]
 pub async fn post_register(
-    req_body: web::Json<RegisterForm>,
     pool: web::Data<PGPool>,
+    req_body: web::Json<RegisterForm>,
+    session: Session,
 ) -> impl Responder {
-    // TODO: send http 409 if the user already exists
-
     let username = &req_body.username.trim();
     let email = &req_body.email.trim();
     let phone_number = &req_body.phone_number.trim();
@@ -47,7 +43,7 @@ pub async fn post_register(
     if !username_meets_requirements {
         return HttpResponse::BadRequest()
             .content_type(ContentType::json())
-            .body(r#"{"detail":"invalid username"}"#)
+            .body(r#"{"detail":"invalid username"}"#);
     }
 
     // sanitise password
@@ -64,7 +60,7 @@ pub async fn post_register(
     if !password_meets_requirements {
         return HttpResponse::BadRequest()
             .content_type(ContentType::json())
-            .body(r#"{"detail":"invalid password"}"#)
+            .body(r#"{"detail":"invalid password"}"#);
     }
 
     // sanitise email
@@ -73,7 +69,7 @@ pub async fn post_register(
     if !email_meets_requirements {
         return HttpResponse::BadRequest()
             .content_type(ContentType::json())
-            .body(r#"{"detail":"invalid email"}"#)
+            .body(r#"{"detail":"invalid email"}"#);
     }
 
     // sanitise phone number
@@ -82,26 +78,47 @@ pub async fn post_register(
     if !phone_number_meets_requirements {
         return HttpResponse::BadRequest()
             .content_type(ContentType::json())
-            .body(r#"{"detail":"invalid phone number"}"#)
+            .body(r#"{"detail":"invalid phone number"}"#);
     }
 
-    // create hash of user password
+    // create a hash of user password
     let password_hash = match bcrypt::hash(password, 10) {
+        Ok(password_hash) => password_hash,
         Err(e) => {
-            eprintln!("{}", e);
+            eprintln!("Internal server error: {}", e);
             return HttpResponse::InternalServerError()
                 .content_type(ContentType::json())
-                .body(r#"{"detail":"something went wrong"}"#)
+                .body(r#"{"detail":"an unexpected error occurred"}"#);
         }
-        Ok(password_hash) => password_hash,
     };
 
-    // attempt to insert new user into db
-    add_user_to_db(pool, username, email, phone_number, &password_hash).await;
+    // attempt to insert a new user into db
+    match add_user_to_db(pool, username, email, phone_number, &password_hash).await {
+        Ok(_) => {
+            // store username_or_email in the session cookie
+            if let Err(e) = session.insert("username_or_email", username) {
+                eprintln!("Internal server error: {}", e);
+                return HttpResponse::InternalServerError()
+                    .content_type(ContentType::json())
+                    .body(r#"{"detail":"an unexpected error occurred"}"#);
+            }
 
-    return HttpResponse::Ok()
-            .content_type(ContentType::json())
-            .body(r#"{"detail":"account created successfully"}"#)
+            return HttpResponse::Ok()
+                .content_type(ContentType::json())
+                .body(r#"{"detail":"account created successfully"}"#);
+        }
+        Err(DieselError::DatabaseError(DieselDbError::UniqueViolation, _)) => {
+            return HttpResponse::Conflict()
+                .content_type(ContentType::json())
+                .body(r#"{"detail":"an account with this email or username already exists"}"#);
+        }
+        Err(e) => {
+            eprintln!("Internal server error: {}", e);
+            return HttpResponse::InternalServerError()
+                .content_type(ContentType::json())
+                .body(r#"{"detail":"an unexpected error occurred"}"#);
+        }
+    }
 }
 
 pub async fn add_user_to_db(
@@ -110,11 +127,14 @@ pub async fn add_user_to_db(
     email: &str,
     phone_number: &str,
     password_hash: &str,
-) {
+) -> Result<usize, DieselError> {
     use crate::models::RegisterUser;
     use crate::schema::users;
 
-    let mut conn = pool.get().await.expect("failed to acquire db connection");
+    let mut conn = pool.get().await.map_err(|e| {
+        eprintln!("Failed to acquire DB connection: {:?}", e);
+        DieselError::DatabaseError(DieselDbError::UnableToSendCommand, Box::new(e.to_string()))
+    })?;
 
     let u = username.to_string();
     let e = email.to_string();
@@ -128,8 +148,10 @@ pub async fn add_user_to_db(
         password_hash: ph,
     };
 
-    let _ = insert_into(users::table)
+    let result = insert_into(users::table)
         .values(&new_user)
         .execute(&mut conn)
-        .await;
+        .await?;
+
+    Ok(result)
 }

@@ -1,6 +1,6 @@
 services:
   mongo:
-    image: mongo:8.0.9
+    image: mongo:8.0
     restart: always
     container_name: db_mongo_messages
     environment:
@@ -10,7 +10,7 @@ services:
       - mongo-data:/data/db
       - ./schema/mongo:/docker-entrypoint-initdb.d
     ports:
-      - 27017:27017
+      - "27017:27017"
 
   postgres:
     image: postgres:17.5
@@ -23,8 +23,21 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
     ports:
-      - 5432:5432
+      - "5432:5432"
+
+  redis:
+    image: redis:8.0
+    restart: always
+    container_name: db_redis_sessions
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+    volumes:
+      - redis-data:/data
+    command: [ "redis-server", "--requirepass", "$REDIS_PASSWORD" ]
+    ports:
+      - "6379:6379"
 
 volumes:
-  postgres-data:
   mongo-data:
+  postgres-data:
+  redis-data:

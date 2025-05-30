@@ -1,5 +1,5 @@
 [package]
-name = "backend"
+name = "chat-core"
 version = "0.1.0"
 edition = "2024"
 
@@ -13,18 +13,16 @@ path = "src/server.rs"
 
 [dependencies]
 actix-cors = "0.7.1"
-# actix-web = { version = "4.11.0", features = ["websockets"] }
-actix-web = { version = "4.11.0" }
-actix-ws = "0.3"
+actix-web = "4.11.0"
+actix-session = { version = "0.10.1", features = ["cookie-session"] }
 bcrypt = "0.17.0"
 chrono = { version = "0.4.41", features = ["serde"] }
 diesel = { version = "2.2.10", features = ["chrono", "postgres", "uuid"] }
 diesel-async = { version = "0.5.2", features = ["postgres", "pool", "deadpool"] }
 dotenv = "0.15.0"
-futures-util = "0.3"
 regex = "1.11.1"
 serde = { version = "1.0.219", features = ["derive"] }
-# tokio = { version = "1.45.0", features = ["full"] }
+tokio = { version = "1.45.0", features = ["full"] }
 tokio-tungstenite = { version = "0.26.2", features = ["default", "connect", "handshake", "stream", "url"] }
 tungstenite = "0.26.2"
 url = "2"

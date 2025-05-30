@@ -1,11 +1,14 @@
-use actix_web::{HttpResponse, Responder, get, post, web};
+use actix_session::Session;
 use actix_web::http::header::ContentType;
+use actix_web::{HttpResponse, Responder, post, web};
 use diesel::{BoolExpressionMethods, ExpressionMethods, query_dsl::methods::FilterDsl};
 use diesel_async::RunQueryDsl;
 use regex::Regex;
 use serde::Deserialize;
 
 use crate::database::init::PGPool;
+use diesel::result::DatabaseErrorKind as DieselDbError;
+use diesel::result::Error as DieselError;
 
 #[derive(Deserialize)]
 struct LoginForm {
@@ -19,14 +22,12 @@ const NUMERIC_REGEX: &str = "[0-9]";
 const SPECIAL_REGEX: &str = "[^a-zA-Z0-9]";
 const EMAIL_REGEX: &str = r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$";
 
-#[get("/login")]
-pub async fn get_login() -> impl Responder {
-    // IMPORTANT: do not handle login through a GET request, only use POST for submitting data
-    HttpResponse::Ok().body("hit get-login, serve login page here")
-}
-
 #[post("/login")]
-pub async fn post_login(req_body: web::Json<LoginForm>, pool: web::Data<PGPool>) -> impl Responder {
+pub async fn post_login(
+    pool: web::Data<PGPool>,
+    req_body: web::Json<LoginForm>,
+    session: Session,
+) -> impl Responder {
     let username_or_email = &req_body.username_or_email.trim();
     let password = &req_body.password.trim();
 
@@ -42,7 +43,7 @@ pub async fn post_login(req_body: web::Json<LoginForm>, pool: web::Data<PGPool>)
     if !username_meets_requirements && !email_meets_requirements {
         return HttpResponse::Unauthorized()
             .content_type(ContentType::json())
-            .body(r#"{"detail":"invalid login"}"#)
+            .body(r#"{"detail":"invalid login"}"#);
     }
 
     // sanitise password
@@ -59,20 +60,36 @@ pub async fn post_login(req_body: web::Json<LoginForm>, pool: web::Data<PGPool>)
     if !password_meets_requirements {
         return HttpResponse::Unauthorized()
             .content_type(ContentType::json())
-            .body(r#"{"detail":"invalid login"}"#)
+            .body(r#"{"detail":"invalid login"}"#);
     }
 
-    // attempt to insert new user into db
-    let outcome = check_user_in_db(pool, username_or_email, password).await;
+    // attempt to insert a new user into db
+    match check_user_in_db(pool, username_or_email, password).await {
+        Ok(result) => {
+            if result == true {
+                // store username_or_email in the session cookie
+                if let Err(e) = session.insert("username_or_email", username_or_email) {
+                    eprintln!("Session insert error: {}", e);
+                    return HttpResponse::InternalServerError()
+                        .content_type(ContentType::json())
+                        .body(r#"{"detail":"an unexpected error occurred"}"#);
+                }
 
-    if outcome {
-        return HttpResponse::Ok()
-            .content_type(ContentType::json())
-            .body(r#"{"detail":"logged in successfully"}"#)
-    } else {
-        return HttpResponse::Unauthorized()
-            .content_type(ContentType::json())
-            .body(r#"{"detail":"invalid login"}"#)
+                return HttpResponse::Ok()
+                    .content_type(ContentType::json())
+                    .body(r#"{"detail":"logged in successfully"}"#);
+            } else {
+                return HttpResponse::Unauthorized()
+                    .content_type(ContentType::json())
+                    .body(r#"{"detail":"invalid login"}"#);
+            }
+        }
+        Err(e) => {
+            eprintln!("Error: {:?}", e);
+            return HttpResponse::InternalServerError()
+                .content_type(ContentType::json())
+                .body(r#"{"detail":"an unexpected error occurred"}"#);
+        }
     }
 }
 
@@ -80,11 +97,14 @@ pub async fn check_user_in_db(
     pool: web::Data<PGPool>,
     username_or_email: &str,
     password: &str,
-) -> bool {
+) -> Result<bool, DieselError> {
     use crate::models::User;
     use crate::schema::users::dsl::*;
 
-    let mut conn = pool.get().await.expect("failed to acquire db connection");
+    let mut conn = pool.get().await.map_err(|e| {
+        eprintln!("Failed to acquire DB connection: {:?}", e);
+        DieselError::DatabaseError(DieselDbError::UnableToSendCommand, Box::new(e.to_string()))
+    })?;
 
     let result = users
         .filter(
@@ -96,10 +116,17 @@ pub async fn check_user_in_db(
         .await;
 
     match result {
-        Ok(user) => {
-            // returns true if bcrypt verification successful
-            bcrypt::verify(password, &user.password_hash).unwrap_or(false)
+        Ok(user) => match bcrypt::verify(password, &user.password_hash) {
+            Ok(_) => Ok(true),
+            Err(e) => {
+                eprintln!("Password verification failed: {:?}", e);
+                Ok(false)
+            }
+        },
+        Err(DieselError::NotFound) => Ok(false),
+        Err(e) => {
+            eprintln!("Database error during login: {:?}", e);
+            Err(e)
         }
-        Err(_) => false,
     }
 }

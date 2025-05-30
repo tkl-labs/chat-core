@@ -20,6 +20,5 @@ async fn main() -> std::io::Result<()> {
         }
     };
 
-    let x = actix::start_server(pool).await;
-    return x;
+    actix::start_server(pool).await
 }
