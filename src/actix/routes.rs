@@ -1,7 +1,9 @@
 use super::auth::routes as auth_routes;
+use super::csrf::routes as csrf_routes;
 use actix_web::web;
 
-static AUTH_SCOPE_HANDLERS: &[(&str, fn(&mut web::ServiceConfig))] = &[("auth", auth_routes)];
+static AUTH_SCOPE_HANDLERS: &[(&str, fn(&mut web::ServiceConfig))] =
+    &[("auth", auth_routes), ("csrf", csrf_routes)];
 
 pub fn apply_routes(cfg: &mut web::ServiceConfig) {
     for (path, handlers_appliers) in AUTH_SCOPE_HANDLERS {

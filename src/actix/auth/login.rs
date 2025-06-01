@@ -31,8 +31,7 @@ pub async fn post_login(
     let password = &req_body.password.trim();
 
     // sanitise username
-    let username_meets_requirements = (username.len() >= 8
-        && username.len() <= 16)
+    let username_meets_requirements = (username.len() >= 8 && username.len() <= 16)
         && (username.chars().all(char::is_alphanumeric));
 
     if !username_meets_requirements {
@@ -102,9 +101,7 @@ pub async fn check_user_in_db(
     })?;
 
     let result = users
-        .filter(
-            username.eq(uname)
-        )
+        .filter(username.eq(uname))
         .first::<User>(&mut conn)
         .await;
 
