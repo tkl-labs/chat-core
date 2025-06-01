@@ -1,15 +1,24 @@
-use actix_web::{HttpResponse, Responder, get, post, web};
+use std::collections::HashMap;
+
 use actix_web::http::header::ContentType;
-use diesel::{BoolExpressionMethods, ExpressionMethods, query_dsl::methods::FilterDsl};
+use actix_web::{post, web, HttpRequest, HttpResponse, Responder};
+use bcrypt;
+use chrono::Utc;
+use diesel::{ExpressionMethods, query_dsl::methods::FilterDsl};
 use diesel_async::RunQueryDsl;
 use regex::Regex;
 use serde::Deserialize;
+use serde_json::to_string;
 
+use crate::actix::api::verify_csrf_token;
 use crate::database::init::PGPool;
+use crate::models::User;
+use diesel::result::DatabaseErrorKind as DieselDbError;
+use diesel::result::Error as DieselError;
 
 #[derive(Deserialize)]
 struct LoginForm {
-    username_or_email: String,
+    username: String,
     password: String,
 }
 
@@ -17,32 +26,34 @@ const LOWERCASE_REGEX: &str = "[a-z]";
 const UPPERCASE_REGEX: &str = "[A-Z]";
 const NUMERIC_REGEX: &str = "[0-9]";
 const SPECIAL_REGEX: &str = "[^a-zA-Z0-9]";
-const EMAIL_REGEX: &str = r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$";
-
-#[get("/login")]
-pub async fn get_login() -> impl Responder {
-    // IMPORTANT: do not handle login through a GET request, only use POST for submitting data
-    HttpResponse::Ok().body("hit get-login, serve login page here")
-}
 
 #[post("/login")]
-pub async fn post_login(req_body: web::Json<LoginForm>, pool: web::Data<PGPool>) -> impl Responder {
-    let username_or_email = &req_body.username_or_email.trim();
+pub async fn post_login(
+    pool: web::Data<PGPool>,
+    req_body: web::Json<LoginForm>,
+    req: HttpRequest,
+) -> impl Responder {
+    println!("{:?}: Login request from {:?}", Utc::now(), req.peer_addr());
+    
+    let verify = verify_csrf_token(&req);
+
+    if !verify {
+        return HttpResponse::Unauthorized()
+                .content_type(ContentType::json())
+                .body(r#"{"detail":"csrf failed"}"#);
+    }
+
+    let username = &req_body.username.trim();
     let password = &req_body.password.trim();
 
     // sanitise username
-    let username_meets_requirements = (username_or_email.len() >= 8
-        && username_or_email.len() <= 16)
-        && (username_or_email.chars().all(char::is_alphanumeric));
+    let username_meets_requirements = (username.len() >= 8 && username.len() <= 16)
+        && (username.chars().all(char::is_alphanumeric));
 
-    // sanitise email
-    let email_re = Regex::new(EMAIL_REGEX).unwrap();
-    let email_meets_requirements = email_re.is_match(&username_or_email);
-
-    if !username_meets_requirements && !email_meets_requirements {
+    if !username_meets_requirements {
         return HttpResponse::Unauthorized()
             .content_type(ContentType::json())
-            .body(r#"{"detail":"invalid login"}"#)
+            .body(r#"{"detail":"invalid login"}"#);
     }
 
     // sanitise password
@@ -59,47 +70,62 @@ pub async fn post_login(req_body: web::Json<LoginForm>, pool: web::Data<PGPool>)
     if !password_meets_requirements {
         return HttpResponse::Unauthorized()
             .content_type(ContentType::json())
-            .body(r#"{"detail":"invalid login"}"#)
+            .body(r#"{"detail":"invalid login"}"#);
     }
 
-    // attempt to insert new user into db
-    let outcome = check_user_in_db(pool, username_or_email, password).await;
+    // attempt to insert a new user into db
+    match check_user_in_db(pool, username, password).await {
+        Ok(user) => {
+            let mut map = HashMap::new();
+            map.insert("id", user.id.to_string());
+            map.insert("username", user.username);
+            map.insert("email", user.email);
+            map.insert("phone_number", user.phone_number);
+            map.insert("two_factor_auth", user.two_factor_auth.to_string());
+            map.insert("profile_pic", user.profile_pic.unwrap_or("".to_string()));
+            map.insert("bio", user.bio.unwrap_or("".to_string()));
+            map.insert("created_at", user.created_at.to_string());
 
-    if outcome {
-        return HttpResponse::Ok()
-            .content_type(ContentType::json())
-            .body(r#"{"detail":"logged in successfully"}"#)
-    } else {
-        return HttpResponse::Unauthorized()
-            .content_type(ContentType::json())
-            .body(r#"{"detail":"invalid login"}"#)
+            let json_str = to_string(&map).unwrap();
+
+            return HttpResponse::Ok()
+                .content_type(ContentType::json())
+                .body(json_str);
+        }
+        Err(e) => {
+            eprintln!("{:?}: Login failed: {:?}", Utc::now(), e);
+            return HttpResponse::Unauthorized()
+                .content_type(ContentType::json())
+                .body(r#"{"detail":"login failed"}"#);
+        }
     }
 }
 
 pub async fn check_user_in_db(
     pool: web::Data<PGPool>,
-    username_or_email: &str,
-    password: &str,
-) -> bool {
+    uname: &str,
+    pass: &str,
+) -> Result<User, DieselError> {
     use crate::models::User;
     use crate::schema::users::dsl::*;
 
-    let mut conn = pool.get().await.expect("failed to acquire db connection");
+    let mut conn = pool.get().await.map_err(|e| {
+        eprintln!("{:?}: Failed to acquire DB connection: {:?}", Utc::now(), e);
+        DieselError::DatabaseError(DieselDbError::UnableToSendCommand, Box::new(e.to_string()))
+    })?;
 
-    let result = users
-        .filter(
-            username
-                .eq(username_or_email)
-                .or(email.eq(username_or_email)),
-        )
+    let user_result = users
+        .filter(username.eq(uname))
         .first::<User>(&mut conn)
         .await;
 
-    match result {
+    match user_result {
         Ok(user) => {
-            // returns true if bcrypt verification successful
-            bcrypt::verify(password, &user.password_hash).unwrap_or(false)
-        }
-        Err(_) => false,
+            match bcrypt::verify(pass, &user.password_hash) {
+                Ok(true) => Ok(user),
+                Ok(false) | Err(_) => Err(DieselError::NotFound),
+            }
+        },
+        Err(_) => Err(DieselError::NotFound),
     }
 }

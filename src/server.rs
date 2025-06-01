@@ -2,7 +2,7 @@ use backend::actix;
 use backend::database::init::init_pool;
 
 use actix_web;
-
+use chrono::Utc;
 use std::io::{Error, ErrorKind};
 
 #[actix_web::main]
@@ -15,11 +15,10 @@ async fn main() -> std::io::Result<()> {
             return Err(Error::new(ErrorKind::Other, e));
         }
         Ok(pool) => {
-            println!("connection pool created");
+            println!("{:?}: Connection pool created", Utc::now());
             pool
         }
     };
 
-    let x = actix::start_server(pool).await;
-    return x;
+    actix::start_server(pool).await
 }
