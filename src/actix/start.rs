@@ -5,6 +5,7 @@ use actix_session::{SessionMiddleware, storage::CookieSessionStore};
 use actix_web::cookie::Key;
 use actix_web::http::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE, HeaderName};
 use actix_web::{App, HttpResponse, HttpServer, web};
+use chrono::Utc;
 use dotenv::dotenv;
 use std::env;
 
@@ -14,10 +15,7 @@ const HTTP_SERVER_PORT: u16 = 8080;
 pub async fn start_server(pool: PGPool) -> std::io::Result<()> {
     dotenv().ok();
 
-    println!(
-        "Starting Actix web server on {}:{}",
-        SERVER_URL, HTTP_SERVER_PORT
-    );
+    println!("{:?}: Starting Actix web server on {:?}:{:?}", Utc::now(), SERVER_URL, HTTP_SERVER_PORT);
 
     let session_secret =
         env::var("SESSION_SECRET").expect("ERROR: SESSION_SECRET must be present in '.env'");

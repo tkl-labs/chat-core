@@ -1,6 +1,7 @@
 use actix_session::Session;
 use actix_web::http::header::ContentType;
 use actix_web::{HttpRequest, HttpResponse, Responder, post, web};
+use chrono::Utc;
 use diesel::dsl::insert_into;
 use diesel_async::RunQueryDsl;
 use regex::Regex;
@@ -33,6 +34,8 @@ pub async fn post_register(
     session: Session,
     req: HttpRequest,
 ) -> impl Responder {
+    println!("{:?}: Register request from {:?}", Utc::now(), req.peer_addr());
+    
     let verify = verify_csrf_token(&req);
 
     if !verify {

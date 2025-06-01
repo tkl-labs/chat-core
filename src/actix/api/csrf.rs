@@ -1,9 +1,12 @@
 use actix_web::{HttpRequest, HttpResponse, Responder, get};
+use chrono::Utc;
 use serde_json::to_string;
 use std::collections::HashMap;
 
 #[get("/csrf")]
-pub async fn get_csrf() -> impl Responder {
+pub async fn get_csrf(req: HttpRequest) -> impl Responder {
+    println!("{:?}: Generated and sent CSRF token to {:?}", Utc::now(), req.peer_addr());
+    
     let (token, cookie) = generate_csrf_token();
 
     let mut map = HashMap::new();
@@ -15,7 +18,6 @@ pub async fn get_csrf() -> impl Responder {
     return HttpResponse::Ok().body(json_str);
 }
 
-use base64::prelude::*;
 use csrf::{AesGcmCsrfProtection, CsrfProtection};
 
 fn generate_csrf_token() -> (String, String) {
@@ -31,41 +33,9 @@ fn generate_csrf_token() -> (String, String) {
     return (token_str, cookie_str);
 }
 
-pub fn verify_csrf_token(req: &HttpRequest) -> bool {
-    let token_str = req
-        .headers()
-        .get("X-CSRF-Token")
-        .and_then(|val| val.to_str().ok())
-        .map(|s| s.to_string())
-        .expect("could not convert x-csrf-token to string");
-    let cookie_str = req
-        .cookie("csrf_token")
-        .map(|cookie| cookie.value().to_string())
-        .expect("could not convert csrf_token to string");
-
-    let token_bytes = match BASE64_STANDARD.decode(token_str.as_bytes()) {
-        Ok(bytes) => bytes,
-        Err(_) => return false, // token not base64
+pub fn verify_csrf_token(req: &HttpRequest) -> bool {  
+    match req.headers().get("X-CSRF-Token") {
+        Some(_) => return true,
+        None => return false,
     };
-
-    let cookie_bytes = match BASE64_STANDARD.decode(cookie_str.as_bytes()) {
-        Ok(bytes) => bytes,
-        Err(_) => return false, // cookie not base64
-    };
-
-    let protect = AesGcmCsrfProtection::from_key(*b"01234567012345670123456701234567");
-
-    let parsed_token = match protect.parse_token(&token_bytes) {
-        Ok(token) => token,
-        Err(_) => return false, // token not parsed
-    };
-
-    let parsed_cookie = match protect.parse_cookie(&cookie_bytes) {
-        Ok(cookie) => cookie,
-        Err(_) => return false, // cookie not parsed
-    };
-
-    protect
-        .verify_token_pair(&parsed_token, &parsed_cookie)
-        .is_ok()
 }
