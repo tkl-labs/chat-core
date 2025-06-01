@@ -7,11 +7,10 @@ use std::collections::HashMap;
 pub async fn get_csrf(req: HttpRequest) -> impl Responder {
     println!("{:?}: Generated and sent CSRF token to {:?}", Utc::now(), req.peer_addr());
     
-    let (token, cookie) = generate_csrf_token();
+    let token = generate_csrf_token();
 
     let mut map = HashMap::new();
     map.insert("csrf_token", token);
-    map.insert("csrf_cookie", cookie);
 
     let json_str = to_string(&map).unwrap();
 
@@ -20,17 +19,16 @@ pub async fn get_csrf(req: HttpRequest) -> impl Responder {
 
 use csrf::{AesGcmCsrfProtection, CsrfProtection};
 
-fn generate_csrf_token() -> (String, String) {
+fn generate_csrf_token() -> String {
     let protect = AesGcmCsrfProtection::from_key(*b"01234567012345670123456701234567");
 
-    let (token, cookie) = protect
+    let (token, _) = protect
         .generate_token_pair(None, 300)
         .expect("couldn't generate token/cookie pair");
 
     let token_str = token.b64_string();
-    let cookie_str = cookie.b64_string();
 
-    return (token_str, cookie_str);
+    return token_str;
 }
 
 pub fn verify_csrf_token(req: &HttpRequest) -> bool {  

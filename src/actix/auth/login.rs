@@ -1,14 +1,18 @@
-use actix_session::Session;
+use std::collections::HashMap;
+
 use actix_web::http::header::ContentType;
-use actix_web::{HttpRequest, HttpResponse, Responder, post, web};
+use actix_web::{post, web, HttpRequest, HttpResponse, Responder};
+use bcrypt;
 use chrono::Utc;
 use diesel::{ExpressionMethods, query_dsl::methods::FilterDsl};
 use diesel_async::RunQueryDsl;
 use regex::Regex;
 use serde::Deserialize;
+use serde_json::to_string;
 
 use crate::actix::api::verify_csrf_token;
 use crate::database::init::PGPool;
+use crate::models::User;
 use diesel::result::DatabaseErrorKind as DieselDbError;
 use diesel::result::Error as DieselError;
 
@@ -27,7 +31,6 @@ const SPECIAL_REGEX: &str = "[^a-zA-Z0-9]";
 pub async fn post_login(
     pool: web::Data<PGPool>,
     req_body: web::Json<LoginForm>,
-    session: Session,
     req: HttpRequest,
 ) -> impl Responder {
     println!("{:?}: Login request from {:?}", Utc::now(), req.peer_addr());
@@ -35,7 +38,9 @@ pub async fn post_login(
     let verify = verify_csrf_token(&req);
 
     if !verify {
-        return HttpResponse::Unauthorized().body("CSRF fail");
+        return HttpResponse::Unauthorized()
+                .content_type(ContentType::json())
+                .body(r#"{"detail":"csrf failed"}"#);
     }
 
     let username = &req_body.username.trim();
@@ -70,30 +75,28 @@ pub async fn post_login(
 
     // attempt to insert a new user into db
     match check_user_in_db(pool, username, password).await {
-        Ok(result) => {
-            if result == true {
-                // store username in the session cookie
-                if let Err(e) = session.insert("username", username) {
-                    eprintln!("Session insert error: {}", e);
-                    return HttpResponse::InternalServerError()
-                        .content_type(ContentType::json())
-                        .body(r#"{"detail":"an unexpected error occurred"}"#);
-                }
+        Ok(user) => {
+            let mut map = HashMap::new();
+            map.insert("id", user.id.to_string());
+            map.insert("username", user.username);
+            map.insert("email", user.email);
+            map.insert("phone_number", user.phone_number);
+            map.insert("two_factor_auth", user.two_factor_auth.to_string());
+            map.insert("profile_pic", user.profile_pic.unwrap_or("".to_string()));
+            map.insert("bio", user.bio.unwrap_or("".to_string()));
+            map.insert("created_at", user.created_at.to_string());
 
-                return HttpResponse::Ok()
-                    .content_type(ContentType::json())
-                    .body(r#"{"detail":"logged in successfully"}"#);
-            } else {
-                return HttpResponse::Unauthorized()
-                    .content_type(ContentType::json())
-                    .body(r#"{"detail":"invalid login"}"#);
-            }
+            let json_str = to_string(&map).unwrap();
+
+            return HttpResponse::Ok()
+                .content_type(ContentType::json())
+                .body(json_str);
         }
         Err(e) => {
-            eprintln!("Error: {:?}", e);
-            return HttpResponse::InternalServerError()
+            eprintln!("{:?}: Login failed: {:?}", Utc::now(), e);
+            return HttpResponse::Unauthorized()
                 .content_type(ContentType::json())
-                .body(r#"{"detail":"an unexpected error occurred"}"#);
+                .body(r#"{"detail":"login failed"}"#);
         }
     }
 }
@@ -102,32 +105,27 @@ pub async fn check_user_in_db(
     pool: web::Data<PGPool>,
     uname: &str,
     pass: &str,
-) -> Result<bool, DieselError> {
+) -> Result<User, DieselError> {
     use crate::models::User;
     use crate::schema::users::dsl::*;
 
     let mut conn = pool.get().await.map_err(|e| {
-        eprintln!("Failed to acquire DB connection: {:?}", e);
+        eprintln!("{:?}: Failed to acquire DB connection: {:?}", Utc::now(), e);
         DieselError::DatabaseError(DieselDbError::UnableToSendCommand, Box::new(e.to_string()))
     })?;
 
-    let result = users
+    let user_result = users
         .filter(username.eq(uname))
         .first::<User>(&mut conn)
         .await;
 
-    match result {
-        Ok(user) => match bcrypt::verify(pass, &user.password_hash) {
-            Ok(_) => Ok(true),
-            Err(e) => {
-                eprintln!("Password verification failed: {:?}", e);
-                Ok(false)
+    match user_result {
+        Ok(user) => {
+            match bcrypt::verify(pass, &user.password_hash) {
+                Ok(true) => Ok(user),
+                Ok(false) | Err(_) => Err(DieselError::NotFound),
             }
         },
-        Err(DieselError::NotFound) => Ok(false),
-        Err(e) => {
-            eprintln!("Database error during login: {:?}", e);
-            Err(e)
-        }
+        Err(_) => Err(DieselError::NotFound),
     }
 }

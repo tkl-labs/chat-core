@@ -14,7 +14,6 @@ path = "src/server.rs"
 [dependencies]
 actix-cors = "0.7.1"
 actix-web = "4.11.0"
-actix-session = { version = "0.10.1", features = ["cookie-session"] }
 bcrypt = "0.17.0"
 chrono = { version = "0.4.41", features = ["serde"] }
 diesel = { version = "2.2.10", features = ["chrono", "postgres", "uuid"] }

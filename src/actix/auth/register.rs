@@ -1,4 +1,5 @@
-use actix_session::Session;
+use std::collections::HashMap;
+
 use actix_web::http::header::ContentType;
 use actix_web::{HttpRequest, HttpResponse, Responder, post, web};
 use chrono::Utc;
@@ -6,6 +7,7 @@ use diesel::dsl::insert_into;
 use diesel_async::RunQueryDsl;
 use regex::Regex;
 use serde::Deserialize;
+use serde_json::to_string;
 
 use crate::actix::api::verify_csrf_token;
 use crate::database::init::PGPool;
@@ -31,7 +33,6 @@ const PHONE_NUMBER_REGEX: &str = r"^\+?[0-9]{7,15}$";
 pub async fn post_register(
     pool: web::Data<PGPool>,
     req_body: web::Json<RegisterForm>,
-    session: Session,
     req: HttpRequest,
 ) -> impl Responder {
     println!("{:?}: Register request from {:?}", Utc::now(), req.peer_addr());
@@ -106,17 +107,16 @@ pub async fn post_register(
     // attempt to insert a new user into db
     match add_user_to_db(pool, username, email, phone_number, &password_hash).await {
         Ok(_) => {
-            // store username_or_email in the session cookie
-            if let Err(e) = session.insert("username_or_email", username) {
-                eprintln!("Internal server error: {}", e);
-                return HttpResponse::InternalServerError()
-                    .content_type(ContentType::json())
-                    .body(r#"{"detail":"an unexpected error occurred"}"#);
-            }
+            let mut map = HashMap::new();
+            map.insert("username", username);
+            map.insert("email", email);
+            map.insert("phone_number", phone_number);
+
+            let json_str = to_string(&map).unwrap();
 
             return HttpResponse::Ok()
                 .content_type(ContentType::json())
-                .body(r#"{"detail":"account created successfully"}"#);
+                .body(json_str);
         }
         Err(DieselError::DatabaseError(DieselDbError::UniqueViolation, _)) => {
             return HttpResponse::Conflict()
