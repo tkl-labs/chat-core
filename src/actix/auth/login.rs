@@ -1,11 +1,12 @@
 use actix_session::Session;
 use actix_web::http::header::ContentType;
-use actix_web::{HttpResponse, Responder, post, web};
+use actix_web::{HttpRequest, HttpResponse, Responder, post, web};
 use diesel::{ExpressionMethods, query_dsl::methods::FilterDsl};
 use diesel_async::RunQueryDsl;
 use regex::Regex;
 use serde::Deserialize;
 
+use crate::actix::api::verify_csrf_token;
 use crate::database::init::PGPool;
 use diesel::result::DatabaseErrorKind as DieselDbError;
 use diesel::result::Error as DieselError;
@@ -26,7 +27,14 @@ pub async fn post_login(
     pool: web::Data<PGPool>,
     req_body: web::Json<LoginForm>,
     session: Session,
+    req: HttpRequest,
 ) -> impl Responder {
+    let verify = verify_csrf_token(&req);
+
+    if !verify {
+        return HttpResponse::Unauthorized().body("CSRF fail");
+    }
+
     let username = &req_body.username.trim();
     let password = &req_body.password.trim();
 

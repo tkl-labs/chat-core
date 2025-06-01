@@ -18,7 +18,7 @@ pub async fn get_csrf() -> impl Responder {
 use base64::prelude::*;
 use csrf::{AesGcmCsrfProtection, CsrfProtection};
 
-pub fn generate_csrf_token() -> (String, String) {
+fn generate_csrf_token() -> (String, String) {
     let protect = AesGcmCsrfProtection::from_key(*b"01234567012345670123456701234567");
 
     let (token, cookie) = protect

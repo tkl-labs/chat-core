@@ -1,5 +1,5 @@
 mod auth;
-mod csrf;
+mod api;
 mod routes;
 mod start;
 
