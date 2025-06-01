@@ -3,6 +3,7 @@ use crate::database::init::PGPool;
 use actix_cors::Cors;
 use actix_session::{SessionMiddleware, storage::CookieSessionStore};
 use actix_web::cookie::Key;
+use actix_web::http::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE, HeaderName};
 use actix_web::{App, HttpResponse, HttpServer, web};
 use dotenv::dotenv;
 use std::env;
@@ -30,9 +31,10 @@ pub async fn start_server(pool: PGPool) -> std::io::Result<()> {
                     .allowed_origin("http://127.0.0.1:3000")
                     .allowed_methods(vec!["GET", "POST", "PUT", "DELETE", "OPTIONS"])
                     .allowed_headers(vec![
-                        actix_web::http::header::AUTHORIZATION,
-                        actix_web::http::header::ACCEPT,
-                        actix_web::http::header::CONTENT_TYPE,
+                        AUTHORIZATION,
+                        ACCEPT,
+                        CONTENT_TYPE,
+                        HeaderName::from_static("x-csrf-token"),
                     ])
                     .supports_credentials()
                     .max_age(3600),
