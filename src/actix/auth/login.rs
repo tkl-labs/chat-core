@@ -1,7 +1,7 @@
 use actix_session::Session;
 use actix_web::http::header::ContentType;
 use actix_web::{HttpResponse, Responder, post, web};
-use diesel::{BoolExpressionMethods, ExpressionMethods, query_dsl::methods::FilterDsl};
+use diesel::{ExpressionMethods, query_dsl::methods::FilterDsl};
 use diesel_async::RunQueryDsl;
 use regex::Regex;
 use serde::Deserialize;
@@ -12,7 +12,7 @@ use diesel::result::Error as DieselError;
 
 #[derive(Deserialize)]
 struct LoginForm {
-    username_or_email: String,
+    username: String,
     password: String,
 }
 
@@ -20,7 +20,6 @@ const LOWERCASE_REGEX: &str = "[a-z]";
 const UPPERCASE_REGEX: &str = "[A-Z]";
 const NUMERIC_REGEX: &str = "[0-9]";
 const SPECIAL_REGEX: &str = "[^a-zA-Z0-9]";
-const EMAIL_REGEX: &str = r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$";
 
 #[post("/login")]
 pub async fn post_login(
@@ -28,19 +27,15 @@ pub async fn post_login(
     req_body: web::Json<LoginForm>,
     session: Session,
 ) -> impl Responder {
-    let username_or_email = &req_body.username_or_email.trim();
+    let username = &req_body.username.trim();
     let password = &req_body.password.trim();
 
     // sanitise username
-    let username_meets_requirements = (username_or_email.len() >= 8
-        && username_or_email.len() <= 16)
-        && (username_or_email.chars().all(char::is_alphanumeric));
+    let username_meets_requirements = (username.len() >= 8
+        && username.len() <= 16)
+        && (username.chars().all(char::is_alphanumeric));
 
-    // sanitise email
-    let email_re = Regex::new(EMAIL_REGEX).unwrap();
-    let email_meets_requirements = email_re.is_match(&username_or_email);
-
-    if !username_meets_requirements && !email_meets_requirements {
+    if !username_meets_requirements {
         return HttpResponse::Unauthorized()
             .content_type(ContentType::json())
             .body(r#"{"detail":"invalid login"}"#);
@@ -64,11 +59,11 @@ pub async fn post_login(
     }
 
     // attempt to insert a new user into db
-    match check_user_in_db(pool, username_or_email, password).await {
+    match check_user_in_db(pool, username, password).await {
         Ok(result) => {
             if result == true {
-                // store username_or_email in the session cookie
-                if let Err(e) = session.insert("username_or_email", username_or_email) {
+                // store username in the session cookie
+                if let Err(e) = session.insert("username", username) {
                     eprintln!("Session insert error: {}", e);
                     return HttpResponse::InternalServerError()
                         .content_type(ContentType::json())
@@ -95,8 +90,8 @@ pub async fn post_login(
 
 pub async fn check_user_in_db(
     pool: web::Data<PGPool>,
-    username_or_email: &str,
-    password: &str,
+    uname: &str,
+    pass: &str,
 ) -> Result<bool, DieselError> {
     use crate::models::User;
     use crate::schema::users::dsl::*;
@@ -108,15 +103,13 @@ pub async fn check_user_in_db(
 
     let result = users
         .filter(
-            username
-                .eq(username_or_email)
-                .or(email.eq(username_or_email)),
+            username.eq(uname)
         )
         .first::<User>(&mut conn)
         .await;
 
     match result {
-        Ok(user) => match bcrypt::verify(password, &user.password_hash) {
+        Ok(user) => match bcrypt::verify(pass, &user.password_hash) {
             Ok(_) => Ok(true),
             Err(e) => {
                 eprintln!("Password verification failed: {:?}", e);
