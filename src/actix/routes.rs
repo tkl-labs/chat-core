@@ -1,5 +1,5 @@
-use super::auth::routes as auth_routes;
 use super::api::routes as api_routes;
+use super::auth::routes as auth_routes;
 use actix_web::web;
 
 static AUTH_SCOPE_HANDLERS: &[(&str, fn(&mut web::ServiceConfig))] =

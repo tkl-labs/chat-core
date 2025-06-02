@@ -15,7 +15,7 @@ async fn main() -> std::io::Result<()> {
             return Err(Error::new(ErrorKind::Other, e));
         }
         Ok(pool) => {
-            println!("{:?}: Connection pool created", Utc::now());
+            println!("{:?}: Connection pool created", Utc::now().timestamp() as usize);
             pool
         }
     };
