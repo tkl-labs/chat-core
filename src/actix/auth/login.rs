@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
+use actix_web::cookie::*;
 use actix_web::http::header::ContentType;
-use actix_web::{post, web, HttpRequest, HttpResponse, Responder};
+use actix_web::{HttpRequest, HttpResponse, Responder, post, web};
 use bcrypt;
 use chrono::Utc;
 use diesel::{ExpressionMethods, query_dsl::methods::FilterDsl};
@@ -11,6 +12,7 @@ use serde::Deserialize;
 use serde_json::to_string;
 
 use crate::actix::api::verify_csrf_token;
+use crate::actix::auth::jwt::encode_jwt_token;
 use crate::database::init::PGPool;
 use crate::models::User;
 use diesel::result::DatabaseErrorKind as DieselDbError;
@@ -34,13 +36,13 @@ pub async fn post_login(
     req: HttpRequest,
 ) -> impl Responder {
     println!("{:?}: Login request from {:?}", Utc::now(), req.peer_addr());
-    
+
     let verify = verify_csrf_token(&req);
 
     if !verify {
         return HttpResponse::Unauthorized()
-                .content_type(ContentType::json())
-                .body(r#"{"detail":"csrf failed"}"#);
+            .content_type(ContentType::json())
+            .body(r#"{"detail":"csrf failed"}"#);
     }
 
     let username = &req_body.username.trim();
@@ -87,16 +89,37 @@ pub async fn post_login(
             map.insert("created_at", user.created_at.to_string());
 
             let json_str = to_string(&map).unwrap();
+            let jwt_token = encode_jwt_token(user.id.to_string());
+            let mut jwt_cookie = Cookie::build("jwt_token", "")
+                .secure(false) // re-enable for HTTPS
+                .http_only(true)
+                .max_age(time::Duration::minutes(15))
+                .finish();
 
-            return HttpResponse::Ok()
+            match jwt_token {
+                Ok(val) => {
+                    jwt_cookie = Cookie::build("jwt_token", val)
+                        .secure(false) // for localhost, enable secure for HTTPS in prod
+                        .http_only(true)
+                        .max_age(time::Duration::minutes(15))
+                        .same_site(SameSite::Lax)
+                        .path("/")
+                        .domain("127.0.0.1")
+                        .finish()
+                }
+                Err(_) => {}
+            }
+
+            HttpResponse::Ok()
                 .content_type(ContentType::json())
-                .body(json_str);
+                .cookie(jwt_cookie)
+                .body(json_str)
         }
         Err(e) => {
             eprintln!("{:?}: Login failed: {:?}", Utc::now(), e);
-            return HttpResponse::Unauthorized()
+            HttpResponse::Unauthorized()
                 .content_type(ContentType::json())
-                .body(r#"{"detail":"login failed"}"#);
+                .body(r#"{"detail":"login failed"}"#)
         }
     }
 }
@@ -120,11 +143,9 @@ pub async fn check_user_in_db(
         .await;
 
     match user_result {
-        Ok(user) => {
-            match bcrypt::verify(pass, &user.password_hash) {
-                Ok(true) => Ok(user),
-                Ok(false) | Err(_) => Err(DieselError::NotFound),
-            }
+        Ok(user) => match bcrypt::verify(pass, &user.password_hash) {
+            Ok(true) => Ok(user),
+            Ok(false) | Err(_) => Err(DieselError::NotFound),
         },
         Err(_) => Err(DieselError::NotFound),
     }

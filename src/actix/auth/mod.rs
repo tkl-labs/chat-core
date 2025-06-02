@@ -7,6 +7,8 @@ use logout::post_logout;
 mod register;
 use register::post_register;
 
+mod jwt;
+
 use actix_web::web;
 
 pub fn routes(cfg: &mut web::ServiceConfig) {

@@ -9,7 +9,12 @@ const SERVER_URL: &str = "127.0.0.1";
 const HTTP_SERVER_PORT: u16 = 8080;
 
 pub async fn start_server(pool: PGPool) -> std::io::Result<()> {
-    println!("{:?}: Starting Actix web server on {:?}:{:?}", Utc::now(), SERVER_URL, HTTP_SERVER_PORT);
+    println!(
+        "{:?}: Starting Actix web server on {:?}:{:?}",
+        Utc::now(),
+        SERVER_URL,
+        HTTP_SERVER_PORT
+    );
 
     HttpServer::new(move || {
         App::new()

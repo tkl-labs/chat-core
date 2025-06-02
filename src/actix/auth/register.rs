@@ -35,8 +35,12 @@ pub async fn post_register(
     req_body: web::Json<RegisterForm>,
     req: HttpRequest,
 ) -> impl Responder {
-    println!("{:?}: Register request from {:?}", Utc::now(), req.peer_addr());
-    
+    println!(
+        "{:?}: Register request from {:?}",
+        Utc::now(),
+        req.peer_addr()
+    );
+
     let verify = verify_csrf_token(&req);
 
     if !verify {
