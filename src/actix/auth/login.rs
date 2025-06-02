@@ -117,6 +117,7 @@ pub async fn post_login(
         }
         Err(e) => {
             eprintln!("{:?}: Login failed: {:?}", Utc::now().timestamp() as usize, e);
+            
             HttpResponse::Unauthorized()
                 .content_type(ContentType::json())
                 .body(r#"{"detail":"login failed"}"#)
