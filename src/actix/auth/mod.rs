@@ -8,6 +8,7 @@ mod register;
 use register::post_register;
 
 mod jwt;
+use jwt::post_refresh;
 
 mod me;
 use me::get_me;
@@ -18,5 +19,6 @@ pub fn routes(cfg: &mut web::ServiceConfig) {
     cfg.service(post_login)
         .service(post_logout)
         .service(post_register)
-        .service(get_me);
+        .service(get_me)
+        .service(post_refresh);
 }

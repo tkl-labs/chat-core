@@ -24,8 +24,8 @@ pub async fn get_me(pool: web::Data<PGPool>, req: HttpRequest) -> impl Responder
         req.peer_addr()
     );
 
-    // extract JWT token from cookie
-    let jwt_token = match req.cookie("jwt_token") {
+    // extract access token from cookie
+    let access_token = match req.cookie("access_token") {
         Some(cookie) => cookie.value().to_string(),
         None => {
             return HttpResponse::Unauthorized()
@@ -34,12 +34,12 @@ pub async fn get_me(pool: web::Data<PGPool>, req: HttpRequest) -> impl Responder
         }
     };
     // decode and validate JWT token
-    let claim = match decode_jwt_token(jwt_token) {
+    let claim = match decode_jwt_token(access_token) {
         Ok(claim) => claim,
         Err(_) => {
             return HttpResponse::Unauthorized()
                 .content_type(ContentType::json())
-                .body(r#"{"detail":"invalid jwt token"}"#);
+                .body(r#"{"detail":"invalid access token"}"#);
         }
     };
 

@@ -7,25 +7,37 @@ use actix_web::http::header::ContentType;
 
 #[post("/logout")]
 pub async fn post_logout(req: HttpRequest) -> impl Responder {
-    let jwt_token = encode_jwt_token("".to_string());
-    let mut jwt_cookie = Cookie::build("jwt_token", "")
-        .secure(false) // re-enable for HTTPS
-        .http_only(true)
-        .max_age(time::Duration::minutes(15))
-        .finish();
+    let access_token = encode_jwt_token("".to_string(), "access".to_string());
+    let refresh_token = encode_jwt_token("".to_string(), "refresh".to_string());
 
-    match jwt_token {
-        Ok(val) => {
-            jwt_cookie = Cookie::build("jwt_token", val)
+    let access_cookie;
+    let refresh_cookie;
+
+    match (access_token, refresh_token) {
+        (Ok(access_val), Ok(refresh_val)) => {
+            access_cookie = Cookie::build("access_token", access_val)
                 .secure(false) // for localhost, enable secure for HTTPS in prod
                 .http_only(true)
                 .max_age(time::Duration::minutes(0))
                 .same_site(SameSite::Lax)
                 .path("/")
                 .domain("127.0.0.1")
-                .finish()
+                .finish();
+
+            refresh_cookie = Cookie::build("refresh_token", refresh_val)
+                .secure(false) // for localhost, enable secure for HTTPS in prod
+                .http_only(true)
+                .max_age(time::Duration::minutes(0))
+                .same_site(SameSite::Lax)
+                .path("/")
+                .domain("127.0.0.1")
+                .finish();
         }
-        Err(_) => {}
+        _ => {
+            return HttpResponse::InternalServerError()
+                .content_type(ContentType::json())
+                .body(r#"{"detail":"failed to remove tokens"}"#);
+        }
     }
 
     println!(
@@ -36,6 +48,7 @@ pub async fn post_logout(req: HttpRequest) -> impl Responder {
 
     HttpResponse::Ok()
         .content_type(ContentType::json())
-        .cookie(jwt_cookie)
+        .cookie(access_cookie)
+        .cookie(refresh_cookie)
         .body(r#"{"detail":"logout successful"}"#)
 }

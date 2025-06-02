@@ -4,21 +4,37 @@ use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode}
 use serde::{Deserialize, Serialize};
 use std::env;
 
+use crate::actix::auth::me::get_user_by_id;
+use crate::database::init::PGPool;
+use actix_web::cookie::{Cookie, SameSite, time};
+use actix_web::http::header::ContentType;
+use actix_web::web;
+use actix_web::{HttpRequest, HttpResponse, Responder, post};
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
-    // aud: String,         // Optional. Audience
+    // aud: String, // Optional. Audience
     exp: usize, // Required (validate_exp defaults to true in validation). Expiration time (as UTC timestamp)
     iat: usize, // Optional. Issued at (as UTC timestamp)
     iss: String, // Optional. Issuer
-    // nbf: usize,          // Optional. Not Before (as UTC timestamp)
+    // nbf: usize, // Optional. Not Before (as UTC timestamp)
     pub sub: String, // Optional. Subject (whom token refers to)
 }
 
-fn create_jwt_claims(user_id: String) -> Claims {
+fn create_jwt_claims(user_id: String, token_type: String) -> Claims {
     let now = Utc::now();
+    let exp: usize;
+    if token_type == "access".to_owned() {
+        exp = (now + Duration::minutes(15)).timestamp() as usize; // expires in 15 mins
+    } else if token_type == "refresh" {
+        exp = (now + Duration::days(7)).timestamp() as usize; // expires in 7 days
+    } else {
+        panic!("Invalid token type")
+    }
+
     let claim = Claims {
         // aud: "http://127.0.0.1:3000",
-        exp: (now + Duration::minutes(15)).timestamp() as usize, // expires in 15 mins
+        exp: exp,
         iat: now.timestamp() as usize,
         iss: "http://127.0.0.1:8080".to_owned(),
         // nbf: now,
@@ -28,12 +44,15 @@ fn create_jwt_claims(user_id: String) -> Claims {
     claim
 }
 
-pub fn encode_jwt_token(user_id: String) -> Result<String, jsonwebtoken::errors::Error> {
+pub fn encode_jwt_token(
+    user_id: String,
+    token_type: String,
+) -> Result<String, jsonwebtoken::errors::Error> {
     dotenv().ok();
 
     let jwt_secret = env::var("JWT_SECRET").expect("ERROR: JWT_SECRET must be present in '.env'");
 
-    let claims = create_jwt_claims(user_id);
+    let claims = create_jwt_claims(user_id, token_type);
 
     encode(
         &Header::default(),
@@ -54,4 +73,79 @@ pub fn decode_jwt_token(token: String) -> Result<Claims, jsonwebtoken::errors::E
     )?;
 
     Ok(token_data.claims)
+}
+
+#[post("/refresh")]
+pub async fn post_refresh(pool: web::Data<PGPool>, req: HttpRequest) -> impl Responder {
+    println!(
+        "{:?}: Token refresh request from {:?}",
+        Utc::now().timestamp() as usize,
+        req.peer_addr()
+    );
+
+    // extract refresh token from cookie
+    let refresh_token = match req.cookie("refresh_token") {
+        Some(cookie) => cookie.value().to_string(),
+        None => {
+            return HttpResponse::Unauthorized()
+                .content_type(ContentType::json())
+                .body(r#"{"detail":"missing refresh token"}"#);
+        }
+    };
+
+    // decode and validate refresh token
+    let claim = match decode_jwt_token(refresh_token) {
+        Ok(claim) => claim,
+        Err(_) => {
+            return HttpResponse::Unauthorized()
+                .content_type(ContentType::json())
+                .body(r#"{"detail":"invalid refresh token"}"#);
+        }
+    };
+
+    let user_id = claim.sub;
+
+    match get_user_by_id(pool, &user_id).await {
+        Ok(_) => {
+            let new_access_token = match encode_jwt_token(user_id.to_string(), "access".to_string())
+            {
+                Ok(token) => token,
+                Err(e) => {
+                    eprintln!(
+                        "{:?}: Failed to encode access token: {:?}",
+                        Utc::now().timestamp() as usize,
+                        e
+                    );
+                    return HttpResponse::InternalServerError()
+                        .content_type(ContentType::json())
+                        .body(r#"{"detail":"internal server error"}"#);
+                }
+            };
+
+            let access_cookie = Cookie::build("access_token", new_access_token)
+                .secure(false) // for localhost, enable secure for HTTPS in prod
+                .http_only(true)
+                .max_age(time::Duration::minutes(15))
+                .same_site(SameSite::Lax)
+                .path("/")
+                .domain("127.0.0.1")
+                .finish();
+
+            HttpResponse::Ok()
+                .content_type(ContentType::json())
+                .cookie(access_cookie)
+                .body(r#"{"detail":"access token refreshed successfully"}"#)
+        }
+        Err(e) => {
+            eprintln!(
+                "{:?}: User fetching failed: {:?}",
+                Utc::now().timestamp() as usize,
+                e
+            );
+
+            HttpResponse::Unauthorized()
+                .content_type(ContentType::json())
+                .body(r#"{"detail":"User not found"}"#)
+        }
+    }
 }
