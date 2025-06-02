@@ -9,10 +9,14 @@ use register::post_register;
 
 mod jwt;
 
+mod me;
+use me::get_me;
+
 use actix_web::web;
 
 pub fn routes(cfg: &mut web::ServiceConfig) {
     cfg.service(post_login)
         .service(post_logout)
-        .service(post_register);
+        .service(post_register)
+        .service(get_me);
 }

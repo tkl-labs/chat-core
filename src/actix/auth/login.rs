@@ -35,7 +35,11 @@ pub async fn post_login(
     req_body: web::Json<LoginForm>,
     req: HttpRequest,
 ) -> impl Responder {
-    println!("{:?}: Login request from {:?}", Utc::now().timestamp() as usize, req.peer_addr());
+    println!(
+        "{:?}: Login request from {:?}",
+        Utc::now().timestamp() as usize,
+        req.peer_addr()
+    );
 
     let verify = verify_csrf_token(&req);
 
@@ -116,8 +120,12 @@ pub async fn post_login(
                 .body(json_str)
         }
         Err(e) => {
-            eprintln!("{:?}: Login failed: {:?}", Utc::now().timestamp() as usize, e);
-            
+            eprintln!(
+                "{:?}: Login failed: {:?}",
+                Utc::now().timestamp() as usize,
+                e
+            );
+
             HttpResponse::Unauthorized()
                 .content_type(ContentType::json())
                 .body(r#"{"detail":"login failed"}"#)
@@ -134,7 +142,11 @@ pub async fn check_user_in_db(
     use crate::schema::users::dsl::*;
 
     let mut conn = pool.get().await.map_err(|e| {
-        eprintln!("{:?}: Failed to acquire DB connection: {:?}", Utc::now().timestamp() as usize, e);
+        eprintln!(
+            "{:?}: Failed to acquire DB connection: {:?}",
+            Utc::now().timestamp() as usize,
+            e
+        );
         DieselError::DatabaseError(DieselDbError::UnableToSendCommand, Box::new(e.to_string()))
     })?;
 
