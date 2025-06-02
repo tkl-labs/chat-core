@@ -5,8 +5,12 @@ use std::collections::HashMap;
 
 #[get("/csrf")]
 pub async fn get_csrf(req: HttpRequest) -> impl Responder {
-    println!("{:?}: Generated and sent CSRF token to {:?}", Utc::now(), req.peer_addr());
-    
+    println!(
+        "{:?}: Generated and sent CSRF token to {:?}",
+        Utc::now(),
+        req.peer_addr()
+    );
+
     let token = generate_csrf_token();
 
     let mut map = HashMap::new();
@@ -31,7 +35,7 @@ fn generate_csrf_token() -> String {
     return token_str;
 }
 
-pub fn verify_csrf_token(req: &HttpRequest) -> bool {  
+pub fn verify_csrf_token(req: &HttpRequest) -> bool {
     match req.headers().get("X-CSRF-Token") {
         Some(_) => return true,
         None => return false,

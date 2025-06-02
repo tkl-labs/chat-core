@@ -1,5 +1,5 @@
-mod auth;
 mod api;
+mod auth;
 mod routes;
 mod start;
 
