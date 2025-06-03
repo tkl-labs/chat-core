@@ -1,8 +1,11 @@
 use actix_web::http::header::ContentType;
 use actix_web::{HttpRequest, HttpResponse, Responder, patch, web};
+use base64::prelude::*;
 use chrono::Utc;
 use diesel::ExpressionMethods;
 use diesel_async::RunQueryDsl;
+use image::load_from_memory;
+use regex::Regex;
 use uuid::Uuid;
 
 use crate::actix::auth::jwt::decode_jwt_token;
@@ -10,6 +13,9 @@ use crate::database::init::PGPool;
 use crate::models::UpdateUser;
 use diesel::result::DatabaseErrorKind as DieselDbError;
 use diesel::result::Error as DieselError;
+
+const EMAIL_REGEX: &str = r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$";
+const PHONE_NUMBER_REGEX: &str = r"^\+?[0-9]{7,15}$";
 
 #[patch("/profile")]
 pub async fn patch_profile(
@@ -54,7 +60,81 @@ pub async fn patch_profile(
         }
     };
 
-    let data = req_body.into_inner();
+    let mut data = req_body.into_inner();
+
+    if let Some(username) = data.username.as_mut() {
+        *username = username.trim().to_string();
+
+        // sanitise username
+        let username_meets_requirements = (username.len() >= 8 && username.len() <= 16)
+            && (username.chars().all(char::is_alphanumeric));
+
+        if !username_meets_requirements {
+            return HttpResponse::BadRequest()
+                .content_type(ContentType::json())
+                .body(r#"{"detail":"invalid username format"}"#);
+        }
+    }
+
+    if let Some(email) = data.email.as_mut() {
+        *email = email.trim().to_string();
+
+        // sanitise email
+        let email_re = Regex::new(EMAIL_REGEX).unwrap();
+        let email_meets_requirements = email_re.is_match(&email);
+
+        if !email_meets_requirements {
+            return HttpResponse::BadRequest()
+                .content_type(ContentType::json())
+                .body(r#"{"detail":"invalid email format"}"#);
+        }
+    }
+
+    if let Some(phone_number) = data.phone_number.as_mut() {
+        *phone_number = phone_number.trim().to_string();
+
+        // sanitise phone number
+        let phone_re = Regex::new(PHONE_NUMBER_REGEX).unwrap();
+        let phone_number_meets_requirements = phone_re.is_match(&phone_number);
+
+        if !phone_number_meets_requirements {
+            return HttpResponse::BadRequest()
+                .content_type(ContentType::json())
+                .body(r#"{"detail":"invalid phone number format"}"#);
+        }
+    }
+
+    if let Some(bio) = data.bio.as_mut() {
+        *bio = bio.trim().to_string();
+
+        // sanitise bio
+        let bio_meets_requirements = bio.len() >= 1 && bio.len() <= 500;
+
+        if !bio_meets_requirements {
+            return HttpResponse::BadRequest()
+                .content_type(ContentType::json())
+                .body(r#"{"detail":"invalid bio format"}"#);
+        }
+    }
+
+    if let Some(profile_pic) = data.profile_pic.as_mut() {
+        *profile_pic = profile_pic.trim().to_string();
+
+        // sanitise profile pic
+        let profile_pic_meets_requirements = match BASE64_STANDARD.decode(profile_pic) {
+            Ok(bytes) => match load_from_memory(&bytes) {
+                Ok(_) => true, // successfully decoded and parsed as an image
+                Err(_) => false, // not a valid image
+            },
+            Err(_) => false, // not valid base64
+        };
+
+        if !profile_pic_meets_requirements {
+            return HttpResponse::BadRequest()
+                .content_type(ContentType::json())
+                .body(r#"{"detail":"invalid profile pic format"}"#);
+        }
+    }
 
     let changes = UpdateUser {
         username: data.username,
