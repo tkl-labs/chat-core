@@ -1,16 +1,13 @@
 use actix_web::http::header::ContentType;
 use actix_web::{HttpRequest, HttpResponse, Responder, get, web};
 use chrono::Utc;
+use diesel::{ExpressionMethods, query_dsl::methods::FilterDsl};
+use diesel_async::RunQueryDsl;
+use serde_json::to_string;
 use std::collections::HashMap;
 use uuid::Uuid;
 
 use crate::actix::auth::jwt::decode_jwt_token;
-
-use diesel::{ExpressionMethods, query_dsl::methods::FilterDsl};
-use diesel_async::RunQueryDsl;
-
-use serde_json::to_string;
-
 use crate::database::init::PGPool;
 use crate::models::User;
 use diesel::result::DatabaseErrorKind as DieselDbError;
@@ -33,6 +30,7 @@ pub async fn get_me(pool: web::Data<PGPool>, req: HttpRequest) -> impl Responder
                 .body(r#"{"detail":"missing jwt token"}"#);
         }
     };
+
     // decode and validate JWT token
     let claim = match decode_jwt_token(access_token) {
         Ok(claim) => claim,

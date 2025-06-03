@@ -7,7 +7,7 @@ use logout::post_logout;
 mod register;
 use register::post_register;
 
-mod jwt;
+pub mod jwt;
 use jwt::post_refresh;
 
 mod me;
