@@ -23,7 +23,7 @@ pub async fn start_server(pool: PGPool) -> std::io::Result<()> {
                     .allowed_origin("http://localhost:3000")
                     .allowed_origin("http://127.0.0.1:3000")
                     .allowed_origin("http://tauri.localhost")
-                    .allowed_methods(vec!["GET", "POST", "PUT", "DELETE", "OPTIONS"])
+                    .allowed_methods(vec!["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
                     .allowed_headers(vec![
                         AUTHORIZATION,
                         ACCEPT,
