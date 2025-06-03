@@ -8,7 +8,7 @@ use image::load_from_memory;
 use regex::Regex;
 use uuid::Uuid;
 
-use crate::actix::auth::jwt::decode_jwt_token;
+use crate::actix::auth::jwt::{JwtTokenKind, decode_jwt_token};
 use crate::database::init::PGPool;
 use crate::models::UpdateUser;
 use diesel::result::DatabaseErrorKind as DieselDbError;
@@ -40,7 +40,7 @@ pub async fn patch_profile(
     };
 
     // decode and validate JWT token
-    let claim = match decode_jwt_token(access_token) {
+    let claim = match decode_jwt_token(access_token, JwtTokenKind::ACCESS) {
         Ok(claim) => claim,
         Err(_) => {
             return HttpResponse::Unauthorized()
@@ -123,7 +123,7 @@ pub async fn patch_profile(
         // sanitise profile pic
         let profile_pic_meets_requirements = match BASE64_STANDARD.decode(profile_pic) {
             Ok(bytes) => match load_from_memory(&bytes) {
-                Ok(_) => true, // successfully decoded and parsed as an image
+                Ok(_) => true,   // successfully decoded and parsed as an image
                 Err(_) => false, // not a valid image
             },
             Err(_) => false, // not valid base64

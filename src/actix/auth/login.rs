@@ -12,7 +12,7 @@ use serde::Deserialize;
 use serde_json::to_string;
 
 use crate::actix::api::verify_csrf_token;
-use crate::actix::auth::jwt::encode_jwt_token;
+use crate::actix::auth::jwt::{JwtTokenKind, encode_jwt_token};
 use crate::database::init::PGPool;
 use crate::models::User;
 use diesel::result::DatabaseErrorKind as DieselDbError;
@@ -95,8 +95,8 @@ pub async fn post_login(
             let json_str = to_string(&map).unwrap();
 
             // generate JWT tokens
-            let access_token = encode_jwt_token(user.id.to_string(), "access".to_string());
-            let refresh_token = encode_jwt_token(user.id.to_string(), "refresh".to_string());
+            let access_token = encode_jwt_token(user.id.to_string(), JwtTokenKind::ACCESS);
+            let refresh_token = encode_jwt_token(user.id.to_string(), JwtTokenKind::REFRESH);
 
             let access_cookie;
             let refresh_cookie;

@@ -7,7 +7,7 @@ use serde_json::to_string;
 use std::collections::HashMap;
 use uuid::Uuid;
 
-use crate::actix::auth::jwt::decode_jwt_token;
+use crate::actix::auth::jwt::{JwtTokenKind, decode_jwt_token};
 use crate::database::init::PGPool;
 use crate::models::User;
 use diesel::result::DatabaseErrorKind as DieselDbError;
@@ -32,7 +32,7 @@ pub async fn get_me(pool: web::Data<PGPool>, req: HttpRequest) -> impl Responder
     };
 
     // decode and validate JWT token
-    let claim = match decode_jwt_token(access_token) {
+    let claim = match decode_jwt_token(access_token, JwtTokenKind::ACCESS) {
         Ok(claim) => claim,
         Err(_) => {
             return HttpResponse::Unauthorized()

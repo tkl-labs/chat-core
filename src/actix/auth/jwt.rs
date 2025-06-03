@@ -21,16 +21,18 @@ pub struct Claims {
     pub sub: String, // Optional. Subject (whom token refers to)
 }
 
-fn create_jwt_claims(user_id: String, token_type: String) -> Claims {
+pub enum JwtTokenKind {
+    ACCESS,
+    REFRESH,
+}
+
+fn create_jwt_claims(user_id: String, token_type: JwtTokenKind) -> Claims {
     let now = Utc::now();
-    let exp: usize;
-    if token_type == "access".to_owned() {
-        exp = (now + Duration::minutes(15)).timestamp() as usize; // expires in 15 mins
-    } else if token_type == "refresh" {
-        exp = (now + Duration::days(7)).timestamp() as usize; // expires in 7 days
-    } else {
-        panic!("Invalid token type")
-    }
+
+    let exp = match token_type {
+        JwtTokenKind::ACCESS => (now + Duration::minutes(15)).timestamp() as usize,
+        JwtTokenKind::REFRESH => (now + Duration::days(7)).timestamp() as usize,
+    };
 
     let claim = Claims {
         // aud: "http://127.0.0.1:3000",
@@ -46,13 +48,18 @@ fn create_jwt_claims(user_id: String, token_type: String) -> Claims {
 
 pub fn encode_jwt_token(
     user_id: String,
-    token_type: String,
+    token_kind: JwtTokenKind,
 ) -> Result<String, jsonwebtoken::errors::Error> {
     dotenv().ok();
 
-    let jwt_secret = env::var("JWT_SECRET").expect("ERROR: JWT_SECRET must be present in '.env'");
+    let jwt_secret = match token_kind {
+        JwtTokenKind::ACCESS => env::var("JWT_ACCESS_TOKEN_SECRET")
+            .expect("ERROR: JWT_ACCESS_TOKEN_SECRET must be present in '.env'"),
+        JwtTokenKind::REFRESH => env::var("JWT_REFRESH_TOKEN_SECRET")
+            .expect("ERROR: JWT_REFRESH_TOKEN_SECRET must be present in '.env'"),
+    };
 
-    let claims = create_jwt_claims(user_id, token_type);
+    let claims = create_jwt_claims(user_id, token_kind);
 
     encode(
         &Header::default(),
@@ -61,10 +68,18 @@ pub fn encode_jwt_token(
     )
 }
 
-pub fn decode_jwt_token(token: String) -> Result<Claims, jsonwebtoken::errors::Error> {
+pub fn decode_jwt_token(
+    token: String,
+    token_kind: JwtTokenKind,
+) -> Result<Claims, jsonwebtoken::errors::Error> {
     dotenv().ok();
 
-    let jwt_secret = env::var("JWT_SECRET").expect("ERROR: JWT_SECRET must be present in '.env'");
+    let jwt_secret = match token_kind {
+        JwtTokenKind::ACCESS => env::var("JWT_ACCESS_TOKEN_SECRET")
+            .expect("ERROR: JWT_ACCESS_TOKEN_SECRET must be present in '.env'"),
+        JwtTokenKind::REFRESH => env::var("JWT_REFRESH_TOKEN_SECRET")
+            .expect("ERROR: JWT_REFRESH_TOKEN_SECRET must be present in '.env'"),
+    };
 
     let token_data = decode::<Claims>(
         &token,
@@ -94,7 +109,7 @@ pub async fn post_refresh(pool: web::Data<PGPool>, req: HttpRequest) -> impl Res
     };
 
     // decode and validate refresh token
-    let claim = match decode_jwt_token(refresh_token) {
+    let claim = match decode_jwt_token(refresh_token, JwtTokenKind::REFRESH) {
         Ok(claim) => claim,
         Err(_) => {
             return HttpResponse::Forbidden()
@@ -107,7 +122,7 @@ pub async fn post_refresh(pool: web::Data<PGPool>, req: HttpRequest) -> impl Res
 
     match get_user_by_id(pool, &user_id).await {
         Ok(_) => {
-            let new_access_token = match encode_jwt_token(user_id.to_string(), "access".to_string())
+            let new_access_token = match encode_jwt_token(user_id.to_string(), JwtTokenKind::ACCESS)
             {
                 Ok(token) => token,
                 Err(e) => {

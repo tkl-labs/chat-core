@@ -1,14 +1,14 @@
 use actix_web::{HttpRequest, HttpResponse, Responder, post};
 use chrono::Utc;
 
-use crate::actix::auth::jwt::encode_jwt_token;
+use crate::actix::auth::jwt::{JwtTokenKind, encode_jwt_token};
 use actix_web::cookie::{Cookie, SameSite, time};
 use actix_web::http::header::ContentType;
 
 #[post("/logout")]
 pub async fn post_logout(req: HttpRequest) -> impl Responder {
-    let access_token = encode_jwt_token("".to_string(), "access".to_string());
-    let refresh_token = encode_jwt_token("".to_string(), "refresh".to_string());
+    let access_token = encode_jwt_token("".to_string(), JwtTokenKind::ACCESS);
+    let refresh_token = encode_jwt_token("".to_string(), JwtTokenKind::REFRESH);
 
     let access_cookie;
     let refresh_cookie;
