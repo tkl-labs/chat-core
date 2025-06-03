@@ -87,7 +87,7 @@ pub async fn post_refresh(pool: web::Data<PGPool>, req: HttpRequest) -> impl Res
     let refresh_token = match req.cookie("refresh_token") {
         Some(cookie) => cookie.value().to_string(),
         None => {
-            return HttpResponse::Unauthorized()
+            return HttpResponse::Forbidden()
                 .content_type(ContentType::json())
                 .body(r#"{"detail":"missing refresh token"}"#);
         }
@@ -97,7 +97,7 @@ pub async fn post_refresh(pool: web::Data<PGPool>, req: HttpRequest) -> impl Res
     let claim = match decode_jwt_token(refresh_token) {
         Ok(claim) => claim,
         Err(_) => {
-            return HttpResponse::Unauthorized()
+            return HttpResponse::Forbidden()
                 .content_type(ContentType::json())
                 .body(r#"{"detail":"invalid refresh token"}"#);
         }
@@ -143,7 +143,7 @@ pub async fn post_refresh(pool: web::Data<PGPool>, req: HttpRequest) -> impl Res
                 e
             );
 
-            HttpResponse::Unauthorized()
+            HttpResponse::Forbidden()
                 .content_type(ContentType::json())
                 .body(r#"{"detail":"User not found"}"#)
         }
