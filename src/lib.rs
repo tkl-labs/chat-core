@@ -1,4 +1,5 @@
-pub mod actix;
-pub mod database;
+pub mod db;
+pub mod http;
 pub mod models;
 pub mod schema;
+pub mod services;

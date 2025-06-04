@@ -1,31 +1,86 @@
 use actix_web::http::header::ContentType;
 use actix_web::{HttpRequest, HttpResponse, Responder, get, patch, web};
-use base64::prelude::*;
 use chrono::Utc;
-use diesel::ExpressionMethods;
-use diesel_async::RunQueryDsl;
-use image::load_from_memory;
-use regex::Regex;
 use uuid::Uuid;
 
-use crate::actix::auth::jwt::{JwtTokenKind, decode_jwt_token};
-use crate::actix::auth::me::get_user_by_id;
-use crate::database::init::PGPool;
+use crate::db::operations::PGPool;
 use crate::models::UpdateUser;
-use diesel::result::DatabaseErrorKind as DieselDbError;
-use diesel::result::Error as DieselError;
+use crate::services::jwt::{JwtTokenKind, decode_jwt_token};
+use crate::services::profile::{apply_profile_update, get_user_by_id};
+use crate::services::validate::{
+    validate_bio, validate_email, validate_new_username, validate_phone_number,
+    validate_profile_pic,
+};
 
-use std::collections::HashMap;
 use serde_json::to_string;
+use std::collections::HashMap;
 
-const EMAIL_REGEX: &str = r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$";
-const PHONE_NUMBER_REGEX: &str = r"^\+?[0-9]{7,15}$";
+#[get("/me")]
+pub async fn get_me(pool: web::Data<PGPool>, req: HttpRequest) -> impl Responder {
+    println!(
+        "{:?}: Me request from {:?}",
+        Utc::now().timestamp() as usize,
+        req.peer_addr()
+    );
+
+    // extract access token from cookie
+    let access_token = match req.cookie("access_token") {
+        Some(cookie) => cookie.value().to_string(),
+        None => {
+            eprintln!("{:?}: extracting failed:", Utc::now().timestamp() as usize,);
+            return HttpResponse::Forbidden()
+                .content_type(ContentType::json())
+                .body(r#"{"detail":"missing jwt token"}"#);
+        }
+    };
+
+    // decode and validate JWT token
+    let claim = match decode_jwt_token(access_token, JwtTokenKind::ACCESS) {
+        Ok(claim) => claim,
+        Err(_) => {
+            eprintln!("{:?}: decoding failed:", Utc::now().timestamp() as usize,);
+            return HttpResponse::Forbidden()
+                .content_type(ContentType::json())
+                .body(r#"{"detail":"invalid access token"}"#);
+        }
+    };
+
+    let user_id = claim.sub;
+
+    match get_user_by_id(pool, &user_id).await {
+        Ok(user) => {
+            let mut map = HashMap::new();
+            map.insert("id", user.id.to_string());
+            map.insert("username", user.username);
+            map.insert("email", user.email);
+            map.insert("phone_number", user.phone_number);
+            map.insert("two_factor_auth", user.two_factor_auth.to_string());
+            map.insert("profile_pic", user.profile_pic.unwrap_or("".to_string()));
+            map.insert("bio", user.bio.unwrap_or("".to_string()));
+            map.insert("created_at", user.created_at.to_string());
+
+            let json_str = to_string(&map).unwrap();
+
+            HttpResponse::Ok()
+                .content_type(ContentType::json())
+                .body(json_str)
+        }
+        Err(e) => {
+            eprintln!(
+                "{:?}: User fetching failed: {:?}",
+                Utc::now().timestamp() as usize,
+                e
+            );
+
+            HttpResponse::Unauthorized()
+                .content_type(ContentType::json())
+                .body(r#"{"detail":"User not found"}"#)
+        }
+    }
+}
 
 #[get("/profile")]
-pub async fn get_profile(
-    pool: web::Data<PGPool>,
-    req: HttpRequest,
-) -> impl Responder {
+pub async fn get_profile(pool: web::Data<PGPool>, req: HttpRequest) -> impl Responder {
     println!(
         "{:?}: Get profile request from {:?}",
         Utc::now().timestamp() as usize,
@@ -64,7 +119,7 @@ pub async fn get_profile(
             map.insert("bio", user.bio.unwrap_or("".to_string()));
 
             let json_str = to_string(&map).unwrap();
-            
+
             HttpResponse::Ok()
                 .content_type(ContentType::json())
                 .body(json_str)
@@ -82,7 +137,6 @@ pub async fn get_profile(
         }
     }
 }
-
 
 #[patch("/profile")]
 pub async fn patch_profile(
@@ -132,52 +186,64 @@ pub async fn patch_profile(
     if let Some(username) = data.username.as_mut() {
         *username = username.trim().to_string();
 
-        // sanitise username
-        let username_meets_requirements = (username.len() >= 8 && username.len() <= 16)
-            && (username.chars().all(char::is_alphanumeric));
-
-        if !username_meets_requirements {
-            return HttpResponse::BadRequest()
-                .content_type(ContentType::json())
-                .body(r#"{"detail":"invalid username format"}"#);
-        }
+        match validate_new_username(pool.clone(), username.to_string()).await {
+            Ok(valid) => {
+                if !valid {
+                    return HttpResponse::BadRequest()
+                        .content_type(ContentType::json())
+                        .body(r#"{"detail":"invalid username format"}"#);
+                }
+            }
+            Err(_) => {
+                return HttpResponse::BadRequest()
+                    .content_type(ContentType::json())
+                    .body(r#"{"detail":"username taken"}"#);
+            }
+        };
     }
 
     if let Some(email) = data.email.as_mut() {
         *email = email.trim().to_string();
 
-        // sanitise email
-        let email_re = Regex::new(EMAIL_REGEX).unwrap();
-        let email_meets_requirements = email_re.is_match(&email);
-
-        if !email_meets_requirements {
-            return HttpResponse::BadRequest()
-                .content_type(ContentType::json())
-                .body(r#"{"detail":"invalid email format"}"#);
-        }
+        match validate_email(pool.clone(), email.to_string()).await {
+            Ok(valid) => {
+                if !valid {
+                    return HttpResponse::BadRequest()
+                        .content_type(ContentType::json())
+                        .body(r#"{"detail":"invalid email format"}"#);
+                }
+            }
+            Err(_) => {
+                return HttpResponse::BadRequest()
+                    .content_type(ContentType::json())
+                    .body(r#"{"detail":"email taken"}"#);
+            }
+        };
     }
 
     if let Some(phone_number) = data.phone_number.as_mut() {
         *phone_number = phone_number.trim().to_string();
 
-        // sanitise phone number
-        let phone_re = Regex::new(PHONE_NUMBER_REGEX).unwrap();
-        let phone_number_meets_requirements = phone_re.is_match(&phone_number);
-
-        if !phone_number_meets_requirements {
-            return HttpResponse::BadRequest()
-                .content_type(ContentType::json())
-                .body(r#"{"detail":"invalid phone number format"}"#);
-        }
+        match validate_phone_number(pool.clone(), phone_number.to_string()).await {
+            Ok(valid) => {
+                if !valid {
+                    return HttpResponse::BadRequest()
+                        .content_type(ContentType::json())
+                        .body(r#"{"detail":"invalid phone number format"}"#);
+                }
+            }
+            Err(_) => {
+                return HttpResponse::BadRequest()
+                    .content_type(ContentType::json())
+                    .body(r#"{"detail":"phone number taken"}"#);
+            }
+        };
     }
 
     if let Some(bio) = data.bio.as_mut() {
         *bio = bio.trim().to_string();
 
-        // sanitise bio
-        let bio_meets_requirements = bio.len() >= 1 && bio.len() <= 500;
-
-        if !bio_meets_requirements {
+        if !validate_bio(bio.clone()) {
             return HttpResponse::BadRequest()
                 .content_type(ContentType::json())
                 .body(r#"{"detail":"invalid bio format"}"#);
@@ -187,16 +253,7 @@ pub async fn patch_profile(
     if let Some(profile_pic) = data.profile_pic.as_mut() {
         *profile_pic = profile_pic.trim().to_string();
 
-        // sanitise profile pic
-        let profile_pic_meets_requirements = match BASE64_STANDARD.decode(profile_pic) {
-            Ok(bytes) => match load_from_memory(&bytes) {
-                Ok(_) => true,   // successfully decoded and parsed as an image
-                Err(_) => false, // not a valid image
-            },
-            Err(_) => false, // not valid base64
-        };
-
-        if !profile_pic_meets_requirements {
+        if !validate_profile_pic(profile_pic.clone()) {
             return HttpResponse::BadRequest()
                 .content_type(ContentType::json())
                 .body(r#"{"detail":"invalid profile pic format"}"#);
@@ -211,7 +268,7 @@ pub async fn patch_profile(
         profile_pic: data.profile_pic,
     };
 
-    match apply_user_update(pool, user_uuid, changes).await {
+    match apply_profile_update(pool, user_uuid, changes).await {
         Ok(_) => HttpResponse::Ok().finish(),
         Err(e) => {
             eprintln!(
@@ -224,30 +281,4 @@ pub async fn patch_profile(
                 .body(r#"{"detail":"failed to update user"}"#)
         }
     }
-}
-
-async fn apply_user_update(
-    pool: web::Data<PGPool>,
-    user_uuid: Uuid,
-    changes: UpdateUser,
-) -> Result<bool, DieselError> {
-    use crate::schema::users::dsl::users;
-    use crate::schema::users::*;
-
-    let mut conn = pool.get().await.map_err(|e| {
-        eprintln!(
-            "{:?}: Failed to acquire DB connection: {:?}",
-            Utc::now().timestamp(),
-            e
-        );
-        DieselError::DatabaseError(DieselDbError::UnableToSendCommand, Box::new(e.to_string()))
-    })?;
-
-    diesel::update(users)
-        .set(&changes)
-        .filter(id.eq(user_uuid))
-        .execute(&mut conn)
-        .await?;
-
-    Ok(true)
 }

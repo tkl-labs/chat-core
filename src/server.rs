@@ -1,7 +1,5 @@
-use backend::actix;
-use backend::database::init::init_pool;
+use backend::db::operations::init_pool;
 
-use actix_web;
 use chrono::Utc;
 use std::io::{Error, ErrorKind};
 
@@ -23,5 +21,5 @@ async fn main() -> std::io::Result<()> {
         }
     };
 
-    actix::start_server(pool).await
+    backend::http::start_http_server(pool).await
 }
