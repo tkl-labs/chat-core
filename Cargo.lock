@@ -578,7 +578,6 @@ dependencies = [
  "serde_json",
  "tokio",
  "tokio-tungstenite",
- "tungstenite",
  "url",
  "uuid",
 ]

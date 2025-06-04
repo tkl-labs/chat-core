@@ -1,5 +1,5 @@
-use super::routes::apply_routes;
 use crate::db::operations::PGPool;
+use crate::http::routes::apply_routes;
 use actix_cors::Cors;
 use actix_web::http::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE, HeaderName};
 use actix_web::{App, HttpServer, web};

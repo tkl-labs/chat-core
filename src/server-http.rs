@@ -1,4 +1,4 @@
-use backend::db::operations::init_pool;
+use lib::db::operations::init_pool;
 
 use chrono::Utc;
 use std::io::{Error, ErrorKind};
@@ -21,5 +21,5 @@ async fn main() -> std::io::Result<()> {
         }
     };
 
-    backend::http::start_http_server(pool).await
+    lib::http::start_http_server(pool).await
 }

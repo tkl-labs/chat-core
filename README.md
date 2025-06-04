@@ -1,31 +1,50 @@
-# TKL Chat: a cross-platform chat room
+# 🗨️ TKL Chat — A Cross-Platform Chat Room
 
-This repository contains the core of TKL Chat, a cross-platform chat room.
+**TKL Chat** is a modern, cross-platform chat room application built with a Rust backend and TypeScript frontend. It supports real-time messaging via WebSockets and is containerised using Docker for easy setup.
 
 ## Getting Started
 
-### Creating Docker containers and volumes
+Follow the steps below to get up and running with TKL Chat:
+
+> ⚠️ Make sure you've defined all required fields from `.env.example` in your `.env` file before proceeding.
+
+### 1. Start Docker Containers
 
 ```bash
 docker compose -f "compose.yaml" up -d
 ```
 
-### Initialising the database using diesel
+This command will launch all necessary services defined in `compose.yaml`.
+
+### 2. Initialize the Database
 
 ```bash
 cargo install diesel_cli --no-default-features --features postgres
-# important: at this point, you should have defined the DATABASE_URL variable in `.env`
 diesel setup
 diesel migration run
 ```
 
-### Running the server
+This command will create and setup the PostgreSQL database.
+
+### 3. Run the HTTP Server
+
+This server handles users, groups, and authentication logic:
 
 ```bash
-cargo run --bin server
+cargo run --bin http
 ```
 
-### Completely removing Docker containers and related volumes
+### 4. Run the WebSocket Server
+
+This server handles real-time messaging and media transfer:
+
+```bash
+cargo run --bin ws
+```
+
+### 5. Tear Down Docker Containers and Volumes
+
+To remove containers **and** their volumes completely:
 
 ```bash
 docker compose -f "compose.yaml" down -v
@@ -33,17 +52,31 @@ docker compose -f "compose.yaml" down -v
 
 ## Tech Stack
 
-### Languages:
+### Languages
 
 ![Rust](https://img.shields.io/badge/rust-%23000000.svg?style=for-the-badge&logo=rust&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/typescript-%23007ACC.svg?style=for-the-badge&logo=typescript&logoColor=white)
 
-### Frameworks:
+### Frameworks & Libraries
 
 ![Tauri](https://img.shields.io/badge/tauri-%2324C8DB.svg?style=for-the-badge&logo=tauri&logoColor=%23FFFFFF)
 ![Next JS](https://img.shields.io/badge/Next-black?style=for-the-badge&logo=next.js&logoColor=white)
 
-### Miscallaneous:
+### Tooling
 
 ![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white)
 ![Obsidian](https://img.shields.io/badge/Obsidian-%23483699.svg?style=for-the-badge&logo=obsidian&logoColor=white)
+
+## Contributing
+
+We welcome contributions! To get started:
+
+1. Fork the repo
+2. Create a new branch (`git checkout -b feature/my-feature`)
+3. Commit your changes
+4. Push to the branch
+5. Open a Pull Request
+
+## License
+
+GPL-3.0 — see [`LICENSE`](./LICENSE) for details.
