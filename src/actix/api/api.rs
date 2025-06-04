@@ -9,6 +9,7 @@ use regex::Regex;
 use uuid::Uuid;
 
 use crate::actix::auth::jwt::{JwtTokenKind, decode_jwt_token};
+use crate::actix::auth::me::get_user_by_id;
 use crate::database::init::PGPool;
 use crate::models::UpdateUser;
 use diesel::result::DatabaseErrorKind as DieselDbError;
@@ -42,7 +43,7 @@ pub async fn get_profile(
     };
 
     // decode and validate JWT token
-    let claim = match decode_jwt_token(access_token) {
+    let claim = match decode_jwt_token(access_token, JwtTokenKind::ACCESS) {
         Ok(claim) => claim,
         Err(_) => {
             return HttpResponse::Unauthorized()

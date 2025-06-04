@@ -25,7 +25,7 @@ pub async fn get_me(pool: web::Data<PGPool>, req: HttpRequest) -> impl Responder
     let access_token = match req.cookie("access_token") {
         Some(cookie) => cookie.value().to_string(),
         None => {
-            return HttpResponse::Unauthorized()
+            return HttpResponse::Forbidden()
                 .content_type(ContentType::json())
                 .body(r#"{"detail":"missing jwt token"}"#);
         }
@@ -35,7 +35,7 @@ pub async fn get_me(pool: web::Data<PGPool>, req: HttpRequest) -> impl Responder
     let claim = match decode_jwt_token(access_token, JwtTokenKind::ACCESS) {
         Ok(claim) => claim,
         Err(_) => {
-            return HttpResponse::Unauthorized()
+            return HttpResponse::Forbidden()
                 .content_type(ContentType::json())
                 .body(r#"{"detail":"invalid access token"}"#);
         }
@@ -57,11 +57,6 @@ pub async fn get_me(pool: web::Data<PGPool>, req: HttpRequest) -> impl Responder
 
             let json_str = to_string(&map).unwrap();
             
-            print!(
-                "{:?}: User fetched successfully: {:?}",    
-                Utc::now().timestamp() as usize,
-                user_id
-            );
             HttpResponse::Ok()
                 .content_type(ContentType::json())
                 .body(json_str)

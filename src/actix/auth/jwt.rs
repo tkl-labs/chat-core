@@ -38,7 +38,7 @@ fn create_jwt_claims(user_id: String, token_type: JwtTokenKind) -> Claims {
         // aud: "http://127.0.0.1:3000",
         exp: exp,
         iat: now.timestamp() as usize,
-        iss: "http://127.0.0.1:8080".to_owned(),
+        iss: "http://127.0.0.1:8080".to_string(),
         // nbf: now,
         sub: user_id,
     };
