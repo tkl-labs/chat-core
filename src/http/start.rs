@@ -1,5 +1,5 @@
 use super::routes::apply_routes;
-use crate::database::init::PGPool;
+use crate::db::operations::PGPool;
 use actix_cors::Cors;
 use actix_web::http::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE, HeaderName};
 use actix_web::{App, HttpServer, web};
@@ -8,7 +8,7 @@ use chrono::Utc;
 const SERVER_URL: &str = "127.0.0.1";
 const HTTP_SERVER_PORT: u16 = 8080;
 
-pub async fn start_server(pool: PGPool) -> std::io::Result<()> {
+pub async fn start_http_server(pool: PGPool) -> std::io::Result<()> {
     println!(
         "{:?}: Starting Actix web server on {:?}:{:?}",
         Utc::now().timestamp() as usize,

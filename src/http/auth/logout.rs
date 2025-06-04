@@ -1,7 +1,7 @@
 use actix_web::{HttpRequest, HttpResponse, Responder, post};
 use chrono::Utc;
 
-use crate::actix::auth::jwt::{JwtTokenKind, encode_jwt_token};
+use crate::services::jwt::{JwtTokenKind, encode_jwt_token};
 use actix_web::cookie::{Cookie, SameSite, time};
 use actix_web::http::header::ContentType;
 
@@ -12,18 +12,13 @@ pub async fn post_logout(req: HttpRequest) -> impl Responder {
 
     match (access_token, refresh_token) {
         (Ok(access_val), Ok(refresh_val)) => {
-            // let origin: String = match req.headers().get("host") {
-            //     Some(val) => val.to_str().unwrap_or("127.0.0.1").to_string(),
-            //     None => "127.0.0.1".to_string(),
-            // };
-            
             let access_cookie = Cookie::build("access_token", &access_val)
                 .secure(false) // for localhost, enable secure for HTTPS in prod
                 .http_only(true)
                 .max_age(time::Duration::minutes(0))
                 .same_site(SameSite::Lax)
                 .path("/")
-                //.domain(&origin)
+                .domain("127.0.0.1")
                 .finish();
 
             let refresh_cookie = Cookie::build("refresh_token", &refresh_val)
@@ -32,7 +27,7 @@ pub async fn post_logout(req: HttpRequest) -> impl Responder {
                 .max_age(time::Duration::minutes(0))
                 .same_site(SameSite::Lax)
                 .path("/")
-                //.domain(&origin)
+                .domain("127.0.0.1")
                 .finish();
 
             println!(
@@ -48,9 +43,9 @@ pub async fn post_logout(req: HttpRequest) -> impl Responder {
                 .body(r#"{"detail":"logout successful"}"#)
         }
         _ => {
-            return HttpResponse::InternalServerError()
+            HttpResponse::InternalServerError()
                 .content_type(ContentType::json())
-                .body(r#"{"detail":"failed to remove tokens"}"#);
+                .body(r#"{"detail":"failed to remove tokens"}"#)
         }
     }
 }

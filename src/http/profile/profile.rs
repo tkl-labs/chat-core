@@ -2,24 +2,90 @@ use actix_web::http::header::ContentType;
 use actix_web::{HttpRequest, HttpResponse, Responder, get, patch, web};
 use base64::prelude::*;
 use chrono::Utc;
-use diesel::ExpressionMethods;
-use diesel_async::RunQueryDsl;
 use image::load_from_memory;
 use regex::Regex;
 use uuid::Uuid;
 
-use crate::actix::auth::jwt::{JwtTokenKind, decode_jwt_token};
-use crate::actix::auth::me::get_user_by_id;
-use crate::database::init::PGPool;
+use crate::services::profile::{apply_profile_update, get_user_by_id};
+use crate::services::jwt::{JwtTokenKind, decode_jwt_token};
+use crate::db::operations::PGPool;
 use crate::models::UpdateUser;
-use diesel::result::DatabaseErrorKind as DieselDbError;
-use diesel::result::Error as DieselError;
 
 use std::collections::HashMap;
 use serde_json::to_string;
 
 const EMAIL_REGEX: &str = r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$";
 const PHONE_NUMBER_REGEX: &str = r"^\+?[0-9]{7,15}$";
+
+#[get("/me")]
+pub async fn get_me(pool: web::Data<PGPool>, req: HttpRequest) -> impl Responder {
+    println!(
+        "{:?}: Me request from {:?}",
+        Utc::now().timestamp() as usize,
+        req.peer_addr()
+    );
+
+    // extract access token from cookie
+    let access_token = match req.cookie("access_token") {
+        Some(cookie) => cookie.value().to_string(),
+        None => {
+            eprintln!(
+                "{:?}: extracting failed:",
+                Utc::now().timestamp() as usize,
+            );
+            return HttpResponse::Forbidden()
+                .content_type(ContentType::json())
+                .body(r#"{"detail":"missing jwt token"}"#);
+        }
+    };
+
+    // decode and validate JWT token
+    let claim = match decode_jwt_token(access_token, JwtTokenKind::ACCESS) {
+        Ok(claim) => claim,
+        Err(_) => {
+            eprintln!(
+                "{:?}: decoding failed:",
+                Utc::now().timestamp() as usize,
+            );
+            return HttpResponse::Forbidden()
+                .content_type(ContentType::json())
+                .body(r#"{"detail":"invalid access token"}"#);
+        }
+    };
+
+    let user_id = claim.sub;
+
+    match get_user_by_id(pool, &user_id).await {
+        Ok(user) => {
+            let mut map = HashMap::new();
+            map.insert("id", user.id.to_string());
+            map.insert("username", user.username);
+            map.insert("email", user.email);
+            map.insert("phone_number", user.phone_number);
+            map.insert("two_factor_auth", user.two_factor_auth.to_string());
+            map.insert("profile_pic", user.profile_pic.unwrap_or("".to_string()));
+            map.insert("bio", user.bio.unwrap_or("".to_string()));
+            map.insert("created_at", user.created_at.to_string());
+
+            let json_str = to_string(&map).unwrap();
+
+            HttpResponse::Ok()
+                .content_type(ContentType::json())
+                .body(json_str)
+        }
+        Err(e) => {
+            eprintln!(
+                "{:?}: User fetching failed: {:?}",
+                Utc::now().timestamp() as usize,
+                e
+            );
+
+            HttpResponse::Unauthorized()
+                .content_type(ContentType::json())
+                .body(r#"{"detail":"User not found"}"#)
+        }
+    }
+}
 
 #[get("/profile")]
 pub async fn get_profile(
@@ -64,7 +130,7 @@ pub async fn get_profile(
             map.insert("bio", user.bio.unwrap_or("".to_string()));
 
             let json_str = to_string(&map).unwrap();
-            
+
             HttpResponse::Ok()
                 .content_type(ContentType::json())
                 .body(json_str)
@@ -211,7 +277,7 @@ pub async fn patch_profile(
         profile_pic: data.profile_pic,
     };
 
-    match apply_user_update(pool, user_uuid, changes).await {
+    match apply_profile_update(pool, user_uuid, changes).await {
         Ok(_) => HttpResponse::Ok().finish(),
         Err(e) => {
             eprintln!(
@@ -226,28 +292,3 @@ pub async fn patch_profile(
     }
 }
 
-async fn apply_user_update(
-    pool: web::Data<PGPool>,
-    user_uuid: Uuid,
-    changes: UpdateUser,
-) -> Result<bool, DieselError> {
-    use crate::schema::users::dsl::users;
-    use crate::schema::users::*;
-
-    let mut conn = pool.get().await.map_err(|e| {
-        eprintln!(
-            "{:?}: Failed to acquire DB connection: {:?}",
-            Utc::now().timestamp(),
-            e
-        );
-        DieselError::DatabaseError(DieselDbError::UnableToSendCommand, Box::new(e.to_string()))
-    })?;
-
-    diesel::update(users)
-        .set(&changes)
-        .filter(id.eq(user_uuid))
-        .execute(&mut conn)
-        .await?;
-
-    Ok(true)
-}
