@@ -59,7 +59,7 @@ pub async fn post_register(
     if !username_meets_requirements {
         return HttpResponse::BadRequest()
             .content_type(ContentType::json())
-            .body(r#"{"detail":"invalid username"}"#);
+            .body(r#"{"detail":"invalid username format"}"#);
     }
 
     // sanitise password
@@ -73,28 +73,31 @@ pub async fn post_register(
         && (upper_re.is_match(&password))
         && (num_re.is_match(&password))
         && (special_re.is_match(&password));
+
     if !password_meets_requirements {
         return HttpResponse::BadRequest()
             .content_type(ContentType::json())
-            .body(r#"{"detail":"invalid password"}"#);
+            .body(r#"{"detail":"invalid password format"}"#);
     }
 
     // sanitise email
     let email_re = Regex::new(EMAIL_REGEX).unwrap();
     let email_meets_requirements = email_re.is_match(&email);
+
     if !email_meets_requirements {
         return HttpResponse::BadRequest()
             .content_type(ContentType::json())
-            .body(r#"{"detail":"invalid email"}"#);
+            .body(r#"{"detail":"invalid email format"}"#);
     }
 
     // sanitise phone number
     let phone_re = Regex::new(PHONE_NUMBER_REGEX).unwrap();
     let phone_number_meets_requirements = phone_re.is_match(&phone_number);
+
     if !phone_number_meets_requirements {
         return HttpResponse::BadRequest()
             .content_type(ContentType::json())
-            .body(r#"{"detail":"invalid phone number"}"#);
+            .body(r#"{"detail":"invalid phone number format"}"#);
     }
 
     // create a hash of user password

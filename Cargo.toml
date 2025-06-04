@@ -14,12 +14,14 @@ path = "src/server.rs"
 [dependencies]
 actix-cors = "0.7.1"
 actix-web = "4.11.0"
+base64 = "0.22.1"
 bcrypt = "0.17.0"
 chrono = { version = "0.4.41", features = ["serde"] }
 csrf = "0.5.0"
 diesel = { version = "2.2.10", features = ["chrono", "postgres", "uuid"] }
 diesel-async = { version = "0.5.2", features = ["postgres", "pool", "deadpool"] }
 dotenv = "0.15.0"
+image = "0.25.6"
 jsonwebtoken = "9"
 regex = "1.11.1"
 serde = { version = "1.0", features = ["derive"] }

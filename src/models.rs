@@ -1,5 +1,6 @@
 use chrono::{DateTime, Utc};
 use diesel::prelude::*;
+use serde::Deserialize;
 use uuid::Uuid;
 
 #[derive(Queryable, Selectable)]
@@ -32,4 +33,15 @@ pub struct RegisterUser {
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct LoginUser {
     pub username: String,
+}
+
+#[derive(AsChangeset, Deserialize)]
+#[diesel(table_name = crate::schema::users)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct UpdateUser {
+    pub username: Option<String>,
+    pub email: Option<String>,
+    pub phone_number: Option<String>,
+    pub bio: Option<String>,
+    pub profile_pic: Option<String>,
 }

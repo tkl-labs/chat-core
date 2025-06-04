@@ -1,16 +1,13 @@
 use actix_web::http::header::ContentType;
 use actix_web::{HttpRequest, HttpResponse, Responder, get, web};
 use chrono::Utc;
+use diesel::{ExpressionMethods, query_dsl::methods::FilterDsl};
+use diesel_async::RunQueryDsl;
+use serde_json::to_string;
 use std::collections::HashMap;
 use uuid::Uuid;
 
-use crate::actix::auth::jwt::decode_jwt_token;
-
-use diesel::{ExpressionMethods, query_dsl::methods::FilterDsl};
-use diesel_async::RunQueryDsl;
-
-use serde_json::to_string;
-
+use crate::actix::auth::jwt::{JwtTokenKind, decode_jwt_token};
 use crate::database::init::PGPool;
 use crate::models::User;
 use diesel::result::DatabaseErrorKind as DieselDbError;
@@ -24,8 +21,8 @@ pub async fn get_me(pool: web::Data<PGPool>, req: HttpRequest) -> impl Responder
         req.peer_addr()
     );
 
-    // extract JWT token from cookie
-    let jwt_token = match req.cookie("jwt_token") {
+    // extract access token from cookie
+    let access_token = match req.cookie("access_token") {
         Some(cookie) => cookie.value().to_string(),
         None => {
             return HttpResponse::Unauthorized()
@@ -33,13 +30,14 @@ pub async fn get_me(pool: web::Data<PGPool>, req: HttpRequest) -> impl Responder
                 .body(r#"{"detail":"missing jwt token"}"#);
         }
     };
+
     // decode and validate JWT token
-    let claim = match decode_jwt_token(jwt_token) {
+    let claim = match decode_jwt_token(access_token, JwtTokenKind::ACCESS) {
         Ok(claim) => claim,
         Err(_) => {
             return HttpResponse::Unauthorized()
                 .content_type(ContentType::json())
-                .body(r#"{"detail":"invalid jwt token"}"#);
+                .body(r#"{"detail":"invalid access token"}"#);
         }
     };
 
