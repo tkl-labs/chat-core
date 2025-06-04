@@ -1,19 +1,19 @@
 use std::collections::HashMap;
 
-use actix_web::cookie::{time, Cookie, SameSite};
+use actix_web::cookie::{Cookie, SameSite, time};
 use actix_web::http::header::ContentType;
 use actix_web::{HttpRequest, HttpResponse, Responder, post, web};
 use chrono::Utc;
 use serde::Deserialize;
 use serde_json::to_string;
 
+use crate::db::operations::PGPool;
 use crate::services::auth::{add_user_to_db, authenticate_user};
 use crate::services::csrf::verify_csrf_token;
 use crate::services::jwt::generate_jwt_tokens_for_user;
-use crate::db::operations::PGPool;
-use diesel::result::DatabaseErrorKind as DieselDbError;
-use diesel::result::Error as DieselError;
-use crate::services::validate::{validate_email, validate_password, validate_phone_number, validate_username};
+use crate::services::validate::{
+    validate_email, validate_new_username, validate_password, validate_phone_number,
+};
 
 #[derive(Deserialize)]
 struct RegisterForm {
@@ -48,23 +48,50 @@ pub async fn post_register(
     let phone_number = &req_body.phone_number;
     let password = &req_body.password;
 
-    if !validate_username(username.to_string()) {
-        return HttpResponse::BadRequest()
-            .content_type(ContentType::json())
-            .body(r#"{"detail":"invalid username format"}"#);
-    }
+    match validate_new_username(pool.clone(), username.to_string()).await {
+        Ok(valid) => {
+            if !valid {
+                return HttpResponse::BadRequest()
+                    .content_type(ContentType::json())
+                    .body(r#"{"detail":"invalid username format"}"#);
+            }
+        }
+        Err(_) => {
+            return HttpResponse::BadRequest()
+                .content_type(ContentType::json())
+                .body(r#"{"detail":"username taken"}"#);
+        }
+    };
 
-    if !validate_email(email.to_string()) {
-        return HttpResponse::BadRequest()
-            .content_type(ContentType::json())
-            .body(r#"{"detail":"invalid email format"}"#);
-    }
+    match validate_email(pool.clone(), email.to_string()).await {
+        Ok(valid) => {
+            if !valid {
+                return HttpResponse::BadRequest()
+                    .content_type(ContentType::json())
+                    .body(r#"{"detail":"invalid email format"}"#);
+            }
+        }
+        Err(_) => {
+            return HttpResponse::BadRequest()
+                .content_type(ContentType::json())
+                .body(r#"{"detail":"email taken"}"#);
+        }
+    };
 
-    if !validate_phone_number(phone_number.to_string()) {
-        return HttpResponse::BadRequest()
-            .content_type(ContentType::json())
-            .body(r#"{"detail":"invalid phone number format"}"#);
-    }
+    match validate_phone_number(pool.clone(), phone_number.to_string()).await {
+        Ok(valid) => {
+            if !valid {
+                return HttpResponse::BadRequest()
+                    .content_type(ContentType::json())
+                    .body(r#"{"detail":"invalid phone number format"}"#);
+            }
+        }
+        Err(_) => {
+            return HttpResponse::BadRequest()
+                .content_type(ContentType::json())
+                .body(r#"{"detail":"phone number taken"}"#);
+        }
+    };
 
     if !validate_password(password.to_string()) {
         return HttpResponse::BadRequest()
@@ -100,7 +127,8 @@ pub async fn post_register(
 
                     let json_str = to_string(&map).unwrap();
 
-                    let (access_token, refresh_token) = generate_jwt_tokens_for_user(user.id.to_string());
+                    let (access_token, refresh_token) =
+                        generate_jwt_tokens_for_user(user.id.to_string());
 
                     let access_cookie = Cookie::build("access_token", access_token)
                         .secure(false) // Use `true` in production
@@ -135,14 +163,9 @@ pub async fn post_register(
 
                     HttpResponse::Unauthorized()
                         .content_type(ContentType::json())
-                        .body(r#"{"detail":"login failed"}"#)
+                        .body(r#"{"detail":"incorrect login details"}"#)
                 }
             }
-        }
-        Err(DieselError::DatabaseError(DieselDbError::UniqueViolation, _)) => {
-            HttpResponse::Conflict()
-                .content_type(ContentType::json())
-                .body(r#"{"detail":"an account with this email or username already exists"}"#)
         }
         Err(e) => {
             eprintln!("Internal server error: {}", e);

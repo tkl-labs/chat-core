@@ -42,10 +42,8 @@ pub async fn post_logout(req: HttpRequest) -> impl Responder {
                 .cookie(refresh_cookie)
                 .body(r#"{"detail":"logout successful"}"#)
         }
-        _ => {
-            HttpResponse::InternalServerError()
-                .content_type(ContentType::json())
-                .body(r#"{"detail":"failed to remove tokens"}"#)
-        }
+        _ => HttpResponse::InternalServerError()
+            .content_type(ContentType::json())
+            .body(r#"{"detail":"failed to remove tokens"}"#),
     }
 }

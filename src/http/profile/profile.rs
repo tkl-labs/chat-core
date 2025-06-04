@@ -3,14 +3,17 @@ use actix_web::{HttpRequest, HttpResponse, Responder, get, patch, web};
 use chrono::Utc;
 use uuid::Uuid;
 
-use crate::services::profile::{apply_profile_update, get_user_by_id};
-use crate::services::jwt::{JwtTokenKind, decode_jwt_token};
 use crate::db::operations::PGPool;
 use crate::models::UpdateUser;
-use crate::services::validate::{validate_bio, validate_email, validate_phone_number, validate_profile_pic, validate_username};
+use crate::services::jwt::{JwtTokenKind, decode_jwt_token};
+use crate::services::profile::{apply_profile_update, get_user_by_id};
+use crate::services::validate::{
+    validate_bio, validate_email, validate_new_username, validate_phone_number,
+    validate_profile_pic,
+};
 
-use std::collections::HashMap;
 use serde_json::to_string;
+use std::collections::HashMap;
 
 #[get("/me")]
 pub async fn get_me(pool: web::Data<PGPool>, req: HttpRequest) -> impl Responder {
@@ -24,10 +27,7 @@ pub async fn get_me(pool: web::Data<PGPool>, req: HttpRequest) -> impl Responder
     let access_token = match req.cookie("access_token") {
         Some(cookie) => cookie.value().to_string(),
         None => {
-            eprintln!(
-                "{:?}: extracting failed:",
-                Utc::now().timestamp() as usize,
-            );
+            eprintln!("{:?}: extracting failed:", Utc::now().timestamp() as usize,);
             return HttpResponse::Forbidden()
                 .content_type(ContentType::json())
                 .body(r#"{"detail":"missing jwt token"}"#);
@@ -38,10 +38,7 @@ pub async fn get_me(pool: web::Data<PGPool>, req: HttpRequest) -> impl Responder
     let claim = match decode_jwt_token(access_token, JwtTokenKind::ACCESS) {
         Ok(claim) => claim,
         Err(_) => {
-            eprintln!(
-                "{:?}: decoding failed:",
-                Utc::now().timestamp() as usize,
-            );
+            eprintln!("{:?}: decoding failed:", Utc::now().timestamp() as usize,);
             return HttpResponse::Forbidden()
                 .content_type(ContentType::json())
                 .body(r#"{"detail":"invalid access token"}"#);
@@ -83,10 +80,7 @@ pub async fn get_me(pool: web::Data<PGPool>, req: HttpRequest) -> impl Responder
 }
 
 #[get("/profile")]
-pub async fn get_profile(
-    pool: web::Data<PGPool>,
-    req: HttpRequest,
-) -> impl Responder {
+pub async fn get_profile(pool: web::Data<PGPool>, req: HttpRequest) -> impl Responder {
     println!(
         "{:?}: Get profile request from {:?}",
         Utc::now().timestamp() as usize,
@@ -192,31 +186,58 @@ pub async fn patch_profile(
     if let Some(username) = data.username.as_mut() {
         *username = username.trim().to_string();
 
-        if !validate_username(username.clone()) {
-            return HttpResponse::BadRequest()
-                .content_type(ContentType::json())
-                .body(r#"{"detail":"invalid username format"}"#);
-        }
+        match validate_new_username(pool.clone(), username.to_string()).await {
+            Ok(valid) => {
+                if !valid {
+                    return HttpResponse::BadRequest()
+                        .content_type(ContentType::json())
+                        .body(r#"{"detail":"invalid username format"}"#);
+                }
+            }
+            Err(_) => {
+                return HttpResponse::BadRequest()
+                    .content_type(ContentType::json())
+                    .body(r#"{"detail":"username taken"}"#);
+            }
+        };
     }
 
     if let Some(email) = data.email.as_mut() {
         *email = email.trim().to_string();
 
-        if !validate_email(email.clone()) {
-            return HttpResponse::BadRequest()
-                .content_type(ContentType::json())
-                .body(r#"{"detail":"invalid email format"}"#);
-        }
+        match validate_email(pool.clone(), email.to_string()).await {
+            Ok(valid) => {
+                if !valid {
+                    return HttpResponse::BadRequest()
+                        .content_type(ContentType::json())
+                        .body(r#"{"detail":"invalid email format"}"#);
+                }
+            }
+            Err(_) => {
+                return HttpResponse::BadRequest()
+                    .content_type(ContentType::json())
+                    .body(r#"{"detail":"email taken"}"#);
+            }
+        };
     }
 
     if let Some(phone_number) = data.phone_number.as_mut() {
         *phone_number = phone_number.trim().to_string();
 
-        if !validate_phone_number(phone_number.clone()) {
-            return HttpResponse::BadRequest()
-                .content_type(ContentType::json())
-                .body(r#"{"detail":"invalid phone number format"}"#);
-        }
+        match validate_phone_number(pool.clone(), phone_number.to_string()).await {
+            Ok(valid) => {
+                if !valid {
+                    return HttpResponse::BadRequest()
+                        .content_type(ContentType::json())
+                        .body(r#"{"detail":"invalid phone number format"}"#);
+                }
+            }
+            Err(_) => {
+                return HttpResponse::BadRequest()
+                    .content_type(ContentType::json())
+                    .body(r#"{"detail":"phone number taken"}"#);
+            }
+        };
     }
 
     if let Some(bio) = data.bio.as_mut() {
@@ -261,4 +282,3 @@ pub async fn patch_profile(
         }
     }
 }
-

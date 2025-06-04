@@ -1,8 +1,8 @@
 use chrono::Utc;
 
-use crate::services::profile::get_user_by_id;
 use crate::db::operations::PGPool;
-use crate::services::jwt::{decode_jwt_token, encode_jwt_token, JwtTokenKind};
+use crate::services::jwt::{JwtTokenKind, decode_jwt_token, encode_jwt_token};
+use crate::services::profile::get_user_by_id;
 use actix_web::cookie::{Cookie, SameSite, time};
 use actix_web::http::header::ContentType;
 use actix_web::web;

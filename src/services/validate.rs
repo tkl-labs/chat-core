@@ -1,6 +1,13 @@
+use actix_web::web;
 use base64::prelude::*;
+use chrono::Utc;
+use diesel::prelude::*;
+use diesel::result::{DatabaseErrorKind as DieselDbError, Error as DieselError};
+use diesel_async::RunQueryDsl;
 use image::load_from_memory;
 use regex::Regex;
+
+use crate::db::operations::PGPool;
 
 const LOWERCASE_REGEX: &str = "[a-z]";
 const UPPERCASE_REGEX: &str = "[A-Z]";
@@ -9,25 +16,125 @@ const SPECIAL_REGEX: &str = "[^a-zA-Z0-9]";
 const EMAIL_REGEX: &str = r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$";
 const PHONE_NUMBER_REGEX: &str = r"^\+?[0-9]{7,15}$";
 
-pub fn validate_username(username: String) -> bool {
+pub fn validate_existing_username(username: String) -> bool {
     let valid_username = (username.len() >= 8 && username.len() <= 16)
         && (username.chars().all(char::is_alphanumeric));
 
     valid_username
 }
 
-pub fn validate_email(email: String) -> bool {
-    let email_re = Regex::new(EMAIL_REGEX).unwrap();
-    let valid_email = email_re.is_match(&email);
+pub async fn validate_new_username(
+    pool: web::Data<PGPool>,
+    new_username: String,
+) -> Result<bool, DieselError> {
+    let valid_username = (new_username.len() >= 8 && new_username.len() <= 16)
+        && (new_username.chars().all(char::is_alphanumeric));
 
-    valid_email
+    if valid_username {
+        use crate::models::User;
+        use crate::schema::users::dsl::*;
+
+        let mut conn = pool.get().await.map_err(|e| {
+            eprintln!(
+                "{:?}: Failed to acquire DB connection: {:?}",
+                Utc::now().timestamp() as usize,
+                e
+            );
+            DieselError::DatabaseError(DieselDbError::UnableToSendCommand, Box::new(e.to_string()))
+        })?;
+
+        let user_result = users
+            .filter(username.ilike(&new_username))
+            .first::<User>(&mut conn)
+            .await;
+
+        if user_result.is_ok() {
+            Err(DieselError::DatabaseError(
+                DieselDbError::UniqueViolation,
+                Box::new("username taken".to_string()),
+            ))
+        } else {
+            Ok(true)
+        }
+    } else {
+        Ok(false)
+    }
 }
 
-pub fn validate_phone_number(phone_number: String) -> bool {
-    let phone_re = Regex::new(PHONE_NUMBER_REGEX).unwrap();
-    let valid_phone_number = phone_re.is_match(&phone_number);
+pub async fn validate_email(
+    pool: web::Data<PGPool>,
+    new_email: String,
+) -> Result<bool, DieselError> {
+    let email_re = Regex::new(EMAIL_REGEX).unwrap();
+    let valid_email = email_re.is_match(&new_email);
 
-    valid_phone_number
+    if valid_email {
+        use crate::models::User;
+        use crate::schema::users::dsl::*;
+
+        let mut conn = pool.get().await.map_err(|e| {
+            eprintln!(
+                "{:?}: Failed to acquire DB connection: {:?}",
+                Utc::now().timestamp() as usize,
+                e
+            );
+            DieselError::DatabaseError(DieselDbError::UnableToSendCommand, Box::new(e.to_string()))
+        })?;
+
+        let user_result = users
+            .filter(email.ilike(&new_email))
+            .first::<User>(&mut conn)
+            .await;
+
+        if user_result.is_ok() {
+            Err(DieselError::DatabaseError(
+                DieselDbError::UniqueViolation,
+                Box::new("email taken".to_string()),
+            ))
+        } else {
+            Ok(true)
+        }
+    } else {
+        Ok(false)
+    }
+}
+
+pub async fn validate_phone_number(
+    pool: web::Data<PGPool>,
+    new_phone_number: String,
+) -> Result<bool, DieselError> {
+    let phone_re = Regex::new(PHONE_NUMBER_REGEX).unwrap();
+    let valid_phone_number = phone_re.is_match(&new_phone_number);
+
+    if valid_phone_number {
+        use crate::models::User;
+        use crate::schema::users::dsl::*;
+
+        let mut conn = pool.get().await.map_err(|e| {
+            eprintln!(
+                "{:?}: Failed to acquire DB connection: {:?}",
+                Utc::now().timestamp() as usize,
+                e
+            );
+            DieselError::DatabaseError(DieselDbError::UnableToSendCommand, Box::new(e.to_string()))
+        })?;
+
+        let user_result = users
+            .filter(phone_number.eq(&new_phone_number))
+            .first::<User>(&mut conn)
+            .await;
+
+        if user_result.is_ok() {
+            Err(DieselError::DatabaseError(
+                DieselDbError::UniqueViolation,
+                Box::new("phone number taken".to_string()),
+            ))
+        } else {
+            Ok(true)
+        }
+    } else {
+        Ok(false)
+    }
 }
 
 pub fn validate_password(password: String) -> bool {
@@ -54,7 +161,7 @@ pub fn validate_bio(bio: String) -> bool {
 pub fn validate_profile_pic(profile_pic: String) -> bool {
     let valid_profile_pic = match BASE64_STANDARD.decode(profile_pic) {
         Ok(bytes) => match load_from_memory(&bytes) {
-            Ok(_) => true, // successfully decoded and parsed as an image
+            Ok(_) => true,   // successfully decoded and parsed as an image
             Err(_) => false, // not a valid image
         },
         Err(_) => false, // not valid base64

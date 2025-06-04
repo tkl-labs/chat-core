@@ -1,17 +1,17 @@
 use std::collections::HashMap;
 
-use actix_web::cookie::{time, Cookie, SameSite};
+use actix_web::cookie::{Cookie, SameSite, time};
 use actix_web::http::header::ContentType;
 use actix_web::{HttpRequest, HttpResponse, Responder, post, web};
 use chrono::Utc;
 use serde::Deserialize;
 use serde_json::to_string;
 
+use crate::db::operations::PGPool;
 use crate::services::auth::authenticate_user;
 use crate::services::csrf::verify_csrf_token;
 use crate::services::jwt::generate_jwt_tokens_for_user;
-use crate::services::validate::{validate_password, validate_username};
-use crate::db::operations::PGPool;
+use crate::services::validate::{validate_existing_username, validate_password};
 
 #[derive(Deserialize)]
 struct LoginForm {
@@ -42,7 +42,7 @@ pub async fn post_login(
     let username = req_body.username.trim();
     let password = &req_body.password;
 
-    if !validate_username(username.to_string()) {
+    if !validate_existing_username(username.to_string()) {
         return HttpResponse::Unauthorized()
             .content_type(ContentType::json())
             .body(r#"{"detail":"invalid login"}"#);
@@ -95,11 +95,15 @@ pub async fn post_login(
                 .body(json_str)
         }
         Err(e) => {
-            eprintln!("{:?}: Login failed: {:?}", Utc::now().timestamp() as usize, e);
+            eprintln!(
+                "{:?}: Login failed: {:?}",
+                Utc::now().timestamp() as usize,
+                e
+            );
 
             HttpResponse::Unauthorized()
                 .content_type(ContentType::json())
-                .body(r#"{"detail":"login failed"}"#)
+                .body(r#"{"detail":"incorrect login details"}"#)
         }
     }
 }

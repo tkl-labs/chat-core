@@ -1,8 +1,8 @@
+use crate::services::csrf::generate_csrf_token;
 use actix_web::{HttpRequest, HttpResponse, Responder, get};
 use chrono::Utc;
 use serde_json::to_string;
 use std::collections::HashMap;
-use crate::services::csrf::generate_csrf_token;
 
 #[get("/csrf")]
 pub async fn get_csrf(req: HttpRequest) -> impl Responder {

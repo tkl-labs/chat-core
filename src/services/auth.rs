@@ -1,14 +1,13 @@
-use bcrypt;
-use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
-use diesel::result::{Error as DieselError, DatabaseErrorKind as DieselDbError};
-use crate::models::User;
-
 use actix_web::web;
+use bcrypt;
 use chrono::Utc;
 use diesel::dsl::insert_into;
+use diesel::prelude::*;
+use diesel::result::{DatabaseErrorKind as DieselDbError, Error as DieselError};
+use diesel_async::RunQueryDsl;
 
 use crate::db::operations::PGPool;
+use crate::models::User;
 
 pub async fn authenticate_user(
     pool: web::Data<PGPool>,

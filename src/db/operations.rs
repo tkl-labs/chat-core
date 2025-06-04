@@ -14,9 +14,7 @@ pub async fn init_pool(max_size: usize) -> Result<PGPool, BuildError> {
 
     let config = AsyncDieselConnectionManager::<AsyncPgConnection>::new(&database_url);
 
-    let pool = Pool::builder(config)
-        .max_size(max_size)
-        .build()?;
+    let pool = Pool::builder(config).max_size(max_size).build()?;
 
     Ok(pool)
 }
