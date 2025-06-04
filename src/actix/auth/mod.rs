@@ -9,7 +9,7 @@ use register::post_register;
 
 mod jwt;
 
-mod me;
+pub mod me;
 use me::get_me;
 
 use actix_web::web;

@@ -58,7 +58,12 @@ pub async fn get_me(pool: web::Data<PGPool>, req: HttpRequest) -> impl Responder
             map.insert("created_at", user.created_at.to_string());
 
             let json_str = to_string(&map).unwrap();
-
+            
+            print!(
+                "{:?}: User fetched successfully: {:?}",    
+                Utc::now().timestamp() as usize,
+                user_id
+            );
             HttpResponse::Ok()
                 .content_type(ContentType::json())
                 .body(json_str)
