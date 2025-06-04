@@ -122,6 +122,11 @@ pub async fn post_refresh(pool: web::Data<PGPool>, req: HttpRequest) -> impl Res
 
     match get_user_by_id(pool, &user_id).await {
         Ok(_) => {
+            // let origin: String = match req.headers().get("host") {
+            //     Some(val) => val.to_str().unwrap_or("127.0.0.1").to_string(),
+            //     None => "127.0.0.1".to_string(),
+            // };
+            
             let new_access_token = match encode_jwt_token(user_id.to_string(), JwtTokenKind::ACCESS)
             {
                 Ok(token) => token,
@@ -137,13 +142,13 @@ pub async fn post_refresh(pool: web::Data<PGPool>, req: HttpRequest) -> impl Res
                 }
             };
 
-            let access_cookie = Cookie::build("access_token", new_access_token)
+            let access_cookie = Cookie::build("access_token", &new_access_token)
                 .secure(false) // for localhost, enable secure for HTTPS in prod
                 .http_only(true)
                 .max_age(time::Duration::minutes(15))
                 .same_site(SameSite::Lax)
                 .path("/")
-                .domain("127.0.0.1")
+                //.domain(&origin)
                 .finish();
 
             HttpResponse::Ok()

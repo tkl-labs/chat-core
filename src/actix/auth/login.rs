@@ -98,28 +98,38 @@ pub async fn post_login(
             let access_token = encode_jwt_token(user.id.to_string(), JwtTokenKind::ACCESS);
             let refresh_token = encode_jwt_token(user.id.to_string(), JwtTokenKind::REFRESH);
 
-            let access_cookie;
-            let refresh_cookie;
-
             match (access_token, refresh_token) {
                 (Ok(access_val), Ok(refresh_val)) => {
-                    access_cookie = Cookie::build("access_token", access_val)
+                    // let origin: String = match req.headers().get("host") {
+                    //     Some(val) => val.to_str().unwrap_or("127.0.0.1").to_string(),
+                    //     None => "127.0.0.1".to_string(),
+                    // };
+                    
+                    let access_cookie = Cookie::build("access_token", &access_val)
                         .secure(false) // for localhost, enable secure for HTTPS in prod
                         .http_only(true)
                         .max_age(time::Duration::minutes(15))
                         .same_site(SameSite::Lax)
                         .path("/")
-                        .domain("127.0.0.1")
+                        //.domain(&origin)
                         .finish();
 
-                    refresh_cookie = Cookie::build("refresh_token", refresh_val)
+                    let refresh_cookie = Cookie::build("refresh_token", &refresh_val)
                         .secure(false) // for localhost, enable secure for HTTPS in prod
                         .http_only(true)
                         .max_age(time::Duration::days(7))
                         .same_site(SameSite::Lax)
                         .path("/")
-                        .domain("127.0.0.1")
+                        //.domain(&origin)
                         .finish();
+
+                    print!("created tokens");
+
+                    HttpResponse::Ok()
+                        .content_type(ContentType::json())
+                        .cookie(access_cookie)
+                        .cookie(refresh_cookie)
+                        .body(json_str)
                 }
                 _ => {
                     return HttpResponse::InternalServerError()
@@ -127,12 +137,6 @@ pub async fn post_login(
                         .body(r#"{"detail":"failed to generate tokens"}"#);
                 }
             }
-
-            HttpResponse::Ok()
-                .content_type(ContentType::json())
-                .cookie(access_cookie)
-                .cookie(refresh_cookie)
-                .body(json_str)
         }
         Err(e) => {
             eprintln!(
