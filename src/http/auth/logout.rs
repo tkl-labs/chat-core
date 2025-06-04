@@ -33,9 +33,11 @@ pub async fn post_logout(req: HttpRequest) -> impl Responder {
                 .domain("127.0.0.1")
                 .finish();
         }
-        _ => return HttpResponse::InternalServerError()
-            .content_type(ContentType::json())
-            .body(r#"{"detail":"failed to remove tokens"}"#),
+        _ => {
+            return HttpResponse::InternalServerError()
+                .content_type(ContentType::json())
+                .body(r#"{"detail":"failed to remove tokens"}"#);
+        }
     }
 
     println!(
