@@ -39,7 +39,7 @@ pub async fn post_login(
             .body(r#"{"detail":"csrf failed"}"#);
     }
 
-    let username = &req_body.username;
+    let username = req_body.username.trim();
     let password = &req_body.password;
 
     if !validate_username(username.to_string()) {

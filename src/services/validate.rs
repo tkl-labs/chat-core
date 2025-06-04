@@ -1,3 +1,5 @@
+use base64::prelude::*;
+use image::load_from_memory;
 use regex::Regex;
 
 const LOWERCASE_REGEX: &str = "[a-z]";
@@ -41,4 +43,22 @@ pub fn validate_password(password: String) -> bool {
         && (special_re.is_match(&password));
 
     valid_password
+}
+
+pub fn validate_bio(bio: String) -> bool {
+    let valid_bio = bio.len() >= 1 && bio.len() <= 500;
+
+    valid_bio
+}
+
+pub fn validate_profile_pic(profile_pic: String) -> bool {
+    let valid_profile_pic = match BASE64_STANDARD.decode(profile_pic) {
+        Ok(bytes) => match load_from_memory(&bytes) {
+            Ok(_) => true, // successfully decoded and parsed as an image
+            Err(_) => false, // not a valid image
+        },
+        Err(_) => false, // not valid base64
+    };
+
+    valid_profile_pic
 }

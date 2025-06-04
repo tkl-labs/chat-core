@@ -43,7 +43,7 @@ pub async fn post_register(
             .body(r#"{"detail":"csrf failed"}"#);
     }
 
-    let username = &req_body.username;
+    let username = req_body.username.trim();
     let email = &req_body.email;
     let phone_number = &req_body.phone_number;
     let password = &req_body.password;
