@@ -65,11 +65,6 @@ pub async fn get_profile(
 
             let json_str = to_string(&map).unwrap();
             
-            print!(
-                "{:?}: User profile fetched successfully: {:?}",    
-                Utc::now().timestamp() as usize,
-                user_id
-            );
             HttpResponse::Ok()
                 .content_type(ContentType::json())
                 .body(json_str)

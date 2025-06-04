@@ -22,7 +22,8 @@ pub async fn start_server(pool: PGPool) -> std::io::Result<()> {
                 Cors::default()
                     .allowed_origin("http://localhost:3000")
                     .allowed_origin("http://127.0.0.1:3000")
-                    .allowed_origin("http://tauri.localhost")
+                    .allowed_origin("tauri://localhost") // macos build
+                    .allowed_origin("http://tauri.localhost") // windows build
                     .allowed_methods(vec!["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
                     .allowed_headers(vec![
                         AUTHORIZATION,
