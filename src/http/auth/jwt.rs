@@ -1,7 +1,7 @@
 use chrono::Utc;
 
 use crate::db::operations::PGPool;
-use crate::services::jwt::{JwtTokenKind, decode_jwt_token, encode_jwt_token};
+use crate::services::jwt::{JwtTokenKind, JwtError, decode_jwt_token, encode_jwt_token};
 use crate::services::profile::get_user_by_id;
 use actix_web::cookie::{Cookie, SameSite, time};
 use actix_web::http::header::ContentType;
@@ -29,10 +29,21 @@ pub async fn post_refresh(pool: web::Data<PGPool>, req: HttpRequest) -> impl Res
     // decode and validate refresh token
     let claim = match decode_jwt_token(refresh_token, JwtTokenKind::REFRESH) {
         Ok(claim) => claim,
-        Err(_) => {
-            return HttpResponse::Forbidden()
+        Err(JwtError::Expired) => {
+            return HttpResponse::Unauthorized()
+                .content_type(ContentType::json())
+                .body(r#"{"detail":"refresh token expired"}"#);
+        }
+        Err(JwtError::Invalid) => {
+            return HttpResponse::Unauthorized()
                 .content_type(ContentType::json())
                 .body(r#"{"detail":"invalid refresh token"}"#);
+        }
+        Err(JwtError::Other(e)) => {
+            eprintln!("JWT error: {:?}", e);
+            return HttpResponse::Unauthorized()
+                .content_type(ContentType::json())
+                .body(r#"{"detail":"token verification failed"}"#);
         }
     };
 

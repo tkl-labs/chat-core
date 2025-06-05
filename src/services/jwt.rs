@@ -1,6 +1,6 @@
 use chrono::{Duration, Utc};
 use dotenv::dotenv;
-use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
+use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, errors::ErrorKind, decode, encode};
 use serde::{Deserialize, Serialize};
 use std::env;
 
@@ -17,6 +17,11 @@ pub struct Claims {
 pub enum JwtTokenKind {
     ACCESS,
     REFRESH,
+}
+pub enum JwtError {
+    Expired,
+    Invalid,
+    Other(String),
 }
 
 fn create_jwt_claims(user_id: String, token_type: JwtTokenKind) -> Claims {
@@ -61,10 +66,7 @@ pub fn encode_jwt_token(
     )
 }
 
-pub fn decode_jwt_token(
-    token: String,
-    token_kind: JwtTokenKind,
-) -> Result<Claims, jsonwebtoken::errors::Error> {
+pub fn decode_jwt_token(token: String, token_kind: JwtTokenKind) -> Result<Claims, JwtError> {
     dotenv().ok();
 
     let jwt_secret = match token_kind {
@@ -74,13 +76,20 @@ pub fn decode_jwt_token(
             .expect("ERROR: JWT_REFRESH_TOKEN_SECRET must be present in '.env'"),
     };
 
-    let token_data = decode::<Claims>(
+    let validation = Validation::default();
+
+    match decode::<Claims>(
         &token,
         &DecodingKey::from_secret(jwt_secret.as_ref()),
-        &Validation::default(),
-    )?;
-
-    Ok(token_data.claims)
+        &validation,
+    ) {
+        Ok(token_data) => Ok(token_data.claims),
+        Err(err) => match *err.kind() {
+            ErrorKind::ExpiredSignature => Err(JwtError::Expired),
+            ErrorKind::InvalidToken => Err(JwtError::Invalid),
+            _ => Err(JwtError::Other(err.to_string())),
+        },
+    }
 }
 
 pub fn generate_jwt_tokens_for_user(id: String) -> (String, String) {
