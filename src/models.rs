@@ -55,3 +55,12 @@ pub struct UpdateUser {
     pub bio: Option<String>,
     pub profile_pic: Option<String>,
 }
+
+#[derive(Insertable)]
+#[diesel(table_name = crate::schema::friendships)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct CreateFriendship {
+    pub user_id: Uuid,
+    pub friend_id: Uuid,
+    pub friendship_status: String,
+}

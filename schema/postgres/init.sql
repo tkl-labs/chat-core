@@ -37,7 +37,7 @@ CREATE INDEX idx_group_member_group_id ON group_member (group_id);
 CREATE TABLE "friendships" (
   user_id UUID NOT NULL,
   friend_id UUID NOT NULL,
-  created_at TIMESTAMP DEFAULT now(),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   friendship_status TEXT CHECK (friendship_status IN ('pending', 'accepted', 'blocked')),
   PRIMARY KEY (user_id, friend_id),
   CONSTRAINT fk_friend_user FOREIGN KEY (user_id) REFERENCES users(id),
