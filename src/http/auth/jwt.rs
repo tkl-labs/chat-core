@@ -11,7 +11,7 @@ use crate::services::profile::get_user_by_id;
 #[post("/refresh")]
 pub async fn post_refresh(pool: web::Data<PGPool>, req: HttpRequest) -> impl Responder {
     println!(
-        "{:?}: Token refresh request from {:?}",
+        "{:?}: POST /auth/refresh from {:?}",
         Utc::now().timestamp() as usize,
         req.peer_addr()
     );

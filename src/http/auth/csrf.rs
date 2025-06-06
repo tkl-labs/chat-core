@@ -7,7 +7,7 @@ use std::collections::HashMap;
 #[get("/csrf")]
 pub async fn get_csrf(req: HttpRequest) -> impl Responder {
     println!(
-        "{:?}: Generated and sent CSRF token to {:?}",
+        "{:?}: GET /auth/csrf from {:?}",
         Utc::now().timestamp() as usize,
         req.peer_addr()
     );

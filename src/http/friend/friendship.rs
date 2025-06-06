@@ -18,7 +18,7 @@ struct AddFriendForm {
 #[delete("/remove")]
 pub async fn delete_remove(pool: web::Data<PGPool>, req: HttpRequest) -> impl Responder {
     println!(
-        "{:?}: Delete friend request from {:?}",
+        "{:?}: DELETE /friend/remove from {:?}",
         Utc::now().timestamp() as usize,
         req.peer_addr()
     );
@@ -43,7 +43,7 @@ pub async fn delete_remove(pool: web::Data<PGPool>, req: HttpRequest) -> impl Re
 #[get("/all")]
 pub async fn get_all(pool: web::Data<PGPool>, req: HttpRequest) -> impl Responder {
     println!(
-        "{:?}: Delete friend request from {:?}",
+        "{:?}: GET /friend/all from {:?}",
         Utc::now().timestamp() as usize,
         req.peer_addr()
     );
@@ -60,7 +60,7 @@ pub async fn get_all(pool: web::Data<PGPool>, req: HttpRequest) -> impl Responde
 #[post("/add")]
 pub async fn post_add(pool: web::Data<PGPool>, req: HttpRequest, req_body: web::Json<AddFriendForm>) -> impl Responder {
     println!(
-        "{:?}: Delete friend request from {:?}",
+        "{:?}: POST /friend/add from {:?}",
         Utc::now().timestamp() as usize,
         req.peer_addr()
     );

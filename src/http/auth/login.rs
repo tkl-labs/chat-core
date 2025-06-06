@@ -26,7 +26,7 @@ pub async fn post_login(
     req: HttpRequest,
 ) -> impl Responder {
     println!(
-        "{:?}: Login request from {:?}",
+        "{:?}: POST /auth/login from {:?}",
         Utc::now().timestamp() as usize,
         req.peer_addr()
     );

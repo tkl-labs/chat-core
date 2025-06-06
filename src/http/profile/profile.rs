@@ -16,10 +16,10 @@ use crate::services::validate::{
     validate_profile_pic,
 };
 
-#[get("/profile")]
+#[get("/self")]
 pub async fn get_profile(pool: web::Data<PGPool>, req: HttpRequest) -> impl Responder {
     println!(
-        "{:?}: Get profile request from {:?}",
+        "{:?}: GET /profile/self from {:?}",
         Utc::now().timestamp() as usize,
         req.peer_addr()
     );
@@ -59,14 +59,14 @@ pub async fn get_profile(pool: web::Data<PGPool>, req: HttpRequest) -> impl Resp
     }
 }
 
-#[patch("/profile")]
+#[patch("/self")]
 pub async fn patch_profile(
     pool: web::Data<PGPool>,
     req_body: web::Json<UpdateUser>,
     req: HttpRequest,
 ) -> impl Responder {
     println!(
-        "{:?}: Update profile request from {:?}",
+        "{:?}: PATCH /profile/self from {:?}",
         Utc::now().timestamp() as usize,
         req.peer_addr()
     );

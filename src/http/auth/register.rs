@@ -30,7 +30,7 @@ pub async fn post_register(
     req: HttpRequest,
 ) -> impl Responder {
     println!(
-        "{:?}: Register request from {:?}",
+        "{:?}: POST /auth/register from {:?}",
         Utc::now().timestamp() as usize,
         req.peer_addr()
     );
@@ -103,7 +103,7 @@ pub async fn post_register(
     let password_hash = match bcrypt::hash(password, 10) {
         Ok(password_hash) => password_hash,
         Err(e) => {
-            eprintln!("Internal server error: {}", e);
+            eprintln!("{:?}: Login failed: {:?}", Utc::now().timestamp() as usize, e);
             return HttpResponse::InternalServerError()
                 .content_type(ContentType::json())
                 .body(r#"{"detail":"an unexpected error occurred"}"#);
@@ -168,7 +168,7 @@ pub async fn post_register(
             }
         }
         Err(e) => {
-            eprintln!("Internal server error: {}", e);
+            eprintln!("{:?}: Login failed: {:?}", Utc::now().timestamp() as usize, e);
             HttpResponse::InternalServerError()
                 .content_type(ContentType::json())
                 .body(r#"{"detail":"an unexpected error occurred"}"#)

@@ -31,7 +31,7 @@ pub async fn post_logout(req: HttpRequest) -> impl Responder {
                 .finish();
 
             println!(
-                "{:?}: Logout request from {:?}",
+                "{:?}: POST /auth/logout from {:?}",
                 Utc::now().timestamp() as usize,
                 req.peer_addr()
             );
