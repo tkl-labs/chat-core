@@ -43,7 +43,7 @@ pub async fn add_friendship_to_db(
     })?;
 
     let user_result = users
-        .filter(username.eq(friend_username))
+        .filter(username.ilike(friend_username))
         .first::<User>(&mut conn)
         .await;
 
@@ -77,4 +77,40 @@ pub async fn add_friendship_to_db(
         .values(vec![&new_friendship_1, &new_friendship_2])
         .execute(&mut conn)
         .await
+}
+
+pub async fn get_all_friends(pool: web::Data<PGPool>, fetching_user_id: &str) -> Result<String, DieselError> {
+    use crate::models::User;
+    use crate::schema::{users, friendships};
+
+    let mut conn = pool.get().await.map_err(|e| {
+        eprintln!(
+            "{:?}: Failed to acquire DB connection: {:?}",
+            Utc::now().timestamp() as usize,
+            e
+        );
+        DieselError::DatabaseError(DieselDbError::UnableToSendCommand, Box::new(e.to_string()))
+    })?;
+
+    let user_uuid = Uuid::parse_str(&fetching_user_id.to_string()).map_err(|e| {
+        eprintln!(
+            "{:?}: Failed to acquire DB connection: {:?}",
+            Utc::now().timestamp() as usize,
+            e
+        );
+        DieselError::DatabaseError(DieselDbError::UnableToSendCommand, Box::new(e.to_string()))
+    })?;
+
+    let results: Vec<User> = users::table
+        .inner_join(friendships::table.on(friendships::user_id.eq(users::id)))
+        .filter(users::id.ne(user_uuid))
+        .select(users::all_columns)
+        .load(&mut conn)
+        .await?;
+
+    serde_json::to_string_pretty(&results)
+        .map_err(|e| {
+            eprintln!("JSON serialization error: {:?}", e);
+            DieselError::SerializationError(Box::new(e))
+        })
 }

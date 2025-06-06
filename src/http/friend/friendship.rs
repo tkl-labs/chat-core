@@ -6,7 +6,7 @@ use serde::Deserialize;
 
 use crate::db::operations::PGPool;
 use crate::services::csrf::verify_csrf_token;
-use crate::services::friendship::add_friend;
+use crate::services::friendship::{add_friend, get_all_friends};
 use crate::services::jwt::extract_user_id;
 use crate::services::validate::validate_existing_username;
 
@@ -16,7 +16,7 @@ struct AddFriendForm {
 }
 
 #[delete("/remove")]
-pub async fn delete_remove(pool: web::Data<PGPool>, req: HttpRequest) -> impl Responder {
+pub async fn delete_remove(_pool: web::Data<PGPool>, req: HttpRequest) -> impl Responder {
     println!(
         "{:?}: DELETE /friend/remove from {:?}",
         Utc::now().timestamp() as usize,
@@ -32,7 +32,7 @@ pub async fn delete_remove(pool: web::Data<PGPool>, req: HttpRequest) -> impl Re
     }
 
     // extract user id from access token
-    let user_id = match extract_user_id(&req) {
+    let _user_id = match extract_user_id(&req) {
         Ok(id) => id,
         Err(resp) => return resp,
     };
@@ -54,7 +54,14 @@ pub async fn get_all(pool: web::Data<PGPool>, req: HttpRequest) -> impl Responde
         Err(resp) => return resp,
     };
 
-    HttpResponse::Ok().body("")
+    let all_friends_json = match get_all_friends(pool, &user_id).await {
+        Ok(val) => val,
+        Err(_) => "{}".to_string(),
+    };
+
+    HttpResponse::Ok()
+        .content_type(ContentType::json())
+        .body(all_friends_json)
 }
 
 #[post("/add")]
