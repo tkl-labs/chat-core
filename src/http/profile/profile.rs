@@ -1,20 +1,20 @@
+use std::collections::HashMap;
+
 use actix_web::http::header::ContentType;
 use actix_web::{HttpRequest, HttpResponse, Responder, get, patch, web};
 use chrono::Utc;
+use serde_json::to_string;
 use uuid::Uuid;
 
 use crate::db::operations::PGPool;
 use crate::models::UpdateUser;
 use crate::services::csrf::verify_csrf_token;
-use crate::services::jwt::{JwtError, JwtTokenKind, decode_jwt_token};
+use crate::services::jwt::extract_user_id;
 use crate::services::profile::{apply_profile_update, get_user_by_id};
 use crate::services::validate::{
     validate_bio, validate_email, validate_new_username, validate_phone_number,
     validate_profile_pic,
 };
-
-use serde_json::to_string;
-use std::collections::HashMap;
 
 #[get("/profile")]
 pub async fn get_profile(pool: web::Data<PGPool>, req: HttpRequest) -> impl Responder {
@@ -24,38 +24,11 @@ pub async fn get_profile(pool: web::Data<PGPool>, req: HttpRequest) -> impl Resp
         req.peer_addr()
     );
 
-    // extract access token from cookie
-    let access_token = match req.cookie("access_token") {
-        Some(cookie) => cookie.value().to_string(),
-        None => {
-            return HttpResponse::Unauthorized()
-                .content_type(ContentType::json())
-                .body(r#"{"detail":"missing jwt token"}"#);
-        }
+    // extract user id from access token
+    let user_id = match extract_user_id(&req) {
+        Ok(id) => id,
+        Err(resp) => return resp,
     };
-
-    // decode and validate JWT token
-    let claim = match decode_jwt_token(&access_token, JwtTokenKind::ACCESS) {
-        Ok(claim) => claim,
-        Err(JwtError::Expired) => {
-            return HttpResponse::Unauthorized()
-                .content_type(ContentType::json())
-                .body(r#"{"detail":"access token expired"}"#);
-        }
-        Err(JwtError::Invalid) => {
-            return HttpResponse::Unauthorized()
-                .content_type(ContentType::json())
-                .body(r#"{"detail":"invalid access token"}"#);
-        }
-        Err(JwtError::Other(e)) => {
-            eprintln!("JWT error: {:?}", e);
-            return HttpResponse::Unauthorized()
-                .content_type(ContentType::json())
-                .body(r#"{"detail":"token verification failed"}"#);
-        }
-    };
-
-    let user_id = claim.sub;
 
     match get_user_by_id(pool, &user_id).await {
         Ok(user) => {
@@ -106,38 +79,11 @@ pub async fn patch_profile(
             .body(r#"{"detail":"csrf failed"}"#);
     }
 
-    // extract access token from cookie
-    let access_token = match req.cookie("access_token") {
-        Some(cookie) => cookie.value().to_string(),
-        None => {
-            return HttpResponse::Unauthorized()
-                .content_type(ContentType::json())
-                .body(r#"{"detail":"missing jwt token"}"#);
-        }
+    // extract user id from access token
+    let user_id = match extract_user_id(&req) {
+        Ok(id) => id,
+        Err(resp) => return resp,
     };
-
-    // decode and validate JWT token
-    let claim = match decode_jwt_token(&access_token, JwtTokenKind::ACCESS) {
-        Ok(claim) => claim,
-        Err(JwtError::Expired) => {
-            return HttpResponse::Unauthorized()
-                .content_type(ContentType::json())
-                .body(r#"{"detail":"access token expired"}"#);
-        }
-        Err(JwtError::Invalid) => {
-            return HttpResponse::Unauthorized()
-                .content_type(ContentType::json())
-                .body(r#"{"detail":"invalid access token"}"#);
-        }
-        Err(JwtError::Other(e)) => {
-            eprintln!("JWT error: {:?}", e);
-            return HttpResponse::Unauthorized()
-                .content_type(ContentType::json())
-                .body(r#"{"detail":"token verification failed"}"#);
-        }
-    };
-
-    let user_id = claim.sub;
 
     let user_uuid = match Uuid::parse_str(&user_id) {
         Ok(value) => value,

@@ -1,3 +1,4 @@
+use actix_web::{http::header::ContentType, HttpRequest, HttpResponse};
 use chrono::{Duration, Utc};
 use dotenv::dotenv;
 use jsonwebtoken::{
@@ -113,6 +114,32 @@ pub fn generate_jwt_tokens_for_user(id: String) -> (String, String) {
 
 pub fn clear_jwt_tokens() -> (String, String) {
     ("".to_string(), "".to_string())
+}
+
+pub fn extract_user_id(req: &HttpRequest) -> Result<String, HttpResponse> {
+    let access_token = req
+        .cookie("access_token")
+        .map(|c| c.value().to_string())
+        .ok_or_else(|| HttpResponse::Unauthorized()
+            .content_type(ContentType::json())
+            .body(r#"{"detail":"missing jwt token"}"#))?;
+
+    extract_user_id_from_jwt_token(access_token).map_err(|e| {
+        match e {
+            JwtError::Expired => HttpResponse::Unauthorized()
+                .content_type(ContentType::json())
+                .body(r#"{"detail":"access token expired"}"#),
+            JwtError::Invalid => HttpResponse::Unauthorized()
+                .content_type(ContentType::json())
+                .body(r#"{"detail":"invalid access token"}"#),
+            JwtError::Other(err) => {
+                eprintln!("JWT error: {:?}", err);
+                HttpResponse::Unauthorized()
+                    .content_type(ContentType::json())
+                    .body(r#"{"detail":"token verification failed"}"#)
+            }
+        }
+    })
 }
 
 pub fn extract_user_id_from_jwt_token(access_token: String) -> Result<String, JwtError> {

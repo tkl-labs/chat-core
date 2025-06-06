@@ -1,12 +1,12 @@
-use chrono::Utc;
-
-use crate::db::operations::PGPool;
-use crate::services::jwt::{JwtError, JwtTokenKind, decode_jwt_token, encode_jwt_token};
-use crate::services::profile::get_user_by_id;
 use actix_web::cookie::{Cookie, SameSite, time};
 use actix_web::http::header::ContentType;
 use actix_web::web;
 use actix_web::{HttpRequest, HttpResponse, Responder, post};
+use chrono::Utc;
+
+use crate::db::operations::PGPool;
+use crate::services::jwt::{JwtTokenKind, encode_jwt_token, extract_user_id};
+use crate::services::profile::get_user_by_id;
 
 #[post("/refresh")]
 pub async fn post_refresh(pool: web::Data<PGPool>, req: HttpRequest) -> impl Responder {
@@ -16,38 +16,11 @@ pub async fn post_refresh(pool: web::Data<PGPool>, req: HttpRequest) -> impl Res
         req.peer_addr()
     );
 
-    // extract refresh token from cookie
-    let refresh_token = match req.cookie("refresh_token") {
-        Some(cookie) => cookie.value().to_string(),
-        None => {
-            return HttpResponse::Forbidden()
-                .content_type(ContentType::json())
-                .body(r#"{"detail":"missing refresh token"}"#);
-        }
+    // extract user id from access token
+    let user_id = match extract_user_id(&req) {
+        Ok(id) => id,
+        Err(resp) => return resp,
     };
-
-    // decode and validate refresh token
-    let claim = match decode_jwt_token(&refresh_token, JwtTokenKind::REFRESH) {
-        Ok(claim) => claim,
-        Err(JwtError::Expired) => {
-            return HttpResponse::Unauthorized()
-                .content_type(ContentType::json())
-                .body(r#"{"detail":"refresh token expired"}"#);
-        }
-        Err(JwtError::Invalid) => {
-            return HttpResponse::Unauthorized()
-                .content_type(ContentType::json())
-                .body(r#"{"detail":"invalid refresh token"}"#);
-        }
-        Err(JwtError::Other(e)) => {
-            eprintln!("JWT error: {:?}", e);
-            return HttpResponse::Unauthorized()
-                .content_type(ContentType::json())
-                .body(r#"{"detail":"token verification failed"}"#);
-        }
-    };
-
-    let user_id = claim.sub;
 
     match get_user_by_id(pool, &user_id).await {
         Ok(_) => {
