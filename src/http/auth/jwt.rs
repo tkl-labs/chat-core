@@ -27,7 +27,7 @@ pub async fn post_refresh(pool: web::Data<PGPool>, req: HttpRequest) -> impl Res
     };
 
     // decode and validate refresh token
-    let claim = match decode_jwt_token(refresh_token, JwtTokenKind::REFRESH) {
+    let claim = match decode_jwt_token(&refresh_token, JwtTokenKind::REFRESH) {
         Ok(claim) => claim,
         Err(JwtError::Expired) => {
             return HttpResponse::Unauthorized()

@@ -48,7 +48,7 @@ pub async fn post_register(
     let phone_number = &req_body.phone_number;
     let password = &req_body.password;
 
-    match validate_new_username(pool.clone(), username.to_string()).await {
+    match validate_new_username(pool.clone(), &username).await {
         Ok(valid) => {
             if !valid {
                 return HttpResponse::BadRequest()
@@ -63,7 +63,7 @@ pub async fn post_register(
         }
     };
 
-    match validate_email(pool.clone(), email.to_string()).await {
+    match validate_email(pool.clone(), &email).await {
         Ok(valid) => {
             if !valid {
                 return HttpResponse::BadRequest()
@@ -78,7 +78,7 @@ pub async fn post_register(
         }
     };
 
-    match validate_phone_number(pool.clone(), phone_number.to_string()).await {
+    match validate_phone_number(pool.clone(), &phone_number).await {
         Ok(valid) => {
             if !valid {
                 return HttpResponse::BadRequest()

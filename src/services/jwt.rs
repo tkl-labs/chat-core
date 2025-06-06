@@ -5,7 +5,6 @@ use jsonwebtoken::{
 };
 use serde::{Deserialize, Serialize};
 use std::env;
-use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
@@ -72,7 +71,7 @@ pub fn encode_jwt_token(
     )
 }
 
-pub fn decode_jwt_token(token: String, token_kind: JwtTokenKind) -> Result<Claims, JwtError> {
+pub fn decode_jwt_token(token: &str, token_kind: JwtTokenKind) -> Result<Claims, JwtError> {
     dotenv().ok();
 
     let jwt_secret = match token_kind {
@@ -85,7 +84,7 @@ pub fn decode_jwt_token(token: String, token_kind: JwtTokenKind) -> Result<Claim
     let validation = Validation::default();
 
     match decode::<Claims>(
-        &token,
+        token,
         &DecodingKey::from_secret(jwt_secret.as_ref()),
         &validation,
     ) {
@@ -116,9 +115,9 @@ pub fn clear_jwt_tokens() -> (String, String) {
     ("".to_string(), "".to_string())
 }
 
-pub fn extract_user_id_from_jwt_token(access_token: String) -> Result<Uuid, JwtError> {
+pub fn extract_user_id_from_jwt_token(access_token: String) -> Result<String, JwtError> {
     // decode and validate JWT token
-    let claim = match decode_jwt_token(access_token, JwtTokenKind::ACCESS) {
+    let claim = match decode_jwt_token(&access_token, JwtTokenKind::ACCESS) {
         Ok(claim) => claim,
         Err(JwtError::Expired) => return Err(JwtError::Expired),
         Err(JwtError::Invalid) => return Err(JwtError::Invalid),
@@ -128,12 +127,5 @@ pub fn extract_user_id_from_jwt_token(access_token: String) -> Result<Uuid, JwtE
         }
     };
 
-    let user_id = claim.sub;
-
-    let user_uuid = match Uuid::parse_str(&user_id) {
-        Ok(value) => value,
-        Err(_) => return Err(JwtError::Invalid),
-    };
-
-    Ok(user_uuid)
+    Ok(claim.sub)
 }

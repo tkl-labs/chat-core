@@ -1,13 +1,22 @@
+use actix_web::web;
 use actix_web::http::header::ContentType;
 use actix_web::{HttpRequest, HttpResponse, Responder, delete, get, post};
 use chrono::Utc;
+use serde::Deserialize;
 
+use crate::services::friendship::add_friend;
 use crate::services::jwt::{
     JwtError, extract_user_id_from_jwt_token,
 };
+use crate::services::validate::validate_existing_username;
+
+#[derive(Deserialize)]
+struct AddFriendForm {
+    username: String,
+}
 
 #[delete("/remove")]
-pub async fn delete_remove(req: HttpRequest) -> impl Responder {
+pub async fn delete_remove(req: HttpRequest, req_body: web::Json<AddFriendForm>) -> impl Responder {
     println!(
         "{:?}: Delete friend request from {:?}",
         Utc::now().timestamp() as usize,
@@ -24,7 +33,7 @@ pub async fn delete_remove(req: HttpRequest) -> impl Responder {
         }
     };
 
-    let user_uuid = match extract_user_id_from_jwt_token(access_token) {
+    let user_id = match extract_user_id_from_jwt_token(access_token) {
         Ok(value) => value,
         Err(JwtError::Expired) => {
             return HttpResponse::Unauthorized()
@@ -44,8 +53,21 @@ pub async fn delete_remove(req: HttpRequest) -> impl Responder {
         }
     };
 
-    println!("user_uuid: {:?}", user_uuid);
+    let username = req_body.username.trim();
 
+    if !validate_existing_username(&username) {
+        return HttpResponse::Unauthorized()
+            .content_type(ContentType::json())
+            .body(r#"{"detail":"invalid username"}"#);
+    }
+
+    println!("user_id: {:?}", user_id);
+
+    let successful = add_friend(&user_id, &username);
+
+    if successful {
+
+    }
     HttpResponse::Ok().body("")
 }
 

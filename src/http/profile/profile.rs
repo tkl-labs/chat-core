@@ -34,7 +34,7 @@ pub async fn get_profile(pool: web::Data<PGPool>, req: HttpRequest) -> impl Resp
     };
 
     // decode and validate JWT token
-    let claim = match decode_jwt_token(access_token, JwtTokenKind::ACCESS) {
+    let claim = match decode_jwt_token(&access_token, JwtTokenKind::ACCESS) {
         Ok(claim) => claim,
         Err(JwtError::Expired) => {
             return HttpResponse::Unauthorized()
@@ -108,7 +108,7 @@ pub async fn patch_profile(
     };
 
     // decode and validate JWT token
-    let claim = match decode_jwt_token(access_token, JwtTokenKind::ACCESS) {
+    let claim = match decode_jwt_token(&access_token, JwtTokenKind::ACCESS) {
         Ok(claim) => claim,
         Err(JwtError::Expired) => {
             return HttpResponse::Unauthorized()
@@ -144,7 +144,7 @@ pub async fn patch_profile(
     if let Some(username) = data.username.as_mut() {
         *username = username.trim().to_string();
 
-        match validate_new_username(pool.clone(), username.to_string()).await {
+        match validate_new_username(pool.clone(), &username).await {
             Ok(valid) => {
                 if !valid {
                     return HttpResponse::BadRequest()
@@ -163,7 +163,7 @@ pub async fn patch_profile(
     if let Some(email) = data.email.as_mut() {
         *email = email.trim().to_string();
 
-        match validate_email(pool.clone(), email.to_string()).await {
+        match validate_email(pool.clone(), &email).await {
             Ok(valid) => {
                 if !valid {
                     return HttpResponse::BadRequest()
@@ -182,7 +182,7 @@ pub async fn patch_profile(
     if let Some(phone_number) = data.phone_number.as_mut() {
         *phone_number = phone_number.trim().to_string();
 
-        match validate_phone_number(pool.clone(), phone_number.to_string()).await {
+        match validate_phone_number(pool.clone(), &phone_number).await {
             Ok(valid) => {
                 if !valid {
                     return HttpResponse::BadRequest()
@@ -201,7 +201,7 @@ pub async fn patch_profile(
     if let Some(bio) = data.bio.as_mut() {
         *bio = bio.trim().to_string();
 
-        if !validate_bio(bio.clone()) {
+        if !validate_bio(&bio) {
             return HttpResponse::BadRequest()
                 .content_type(ContentType::json())
                 .body(r#"{"detail":"invalid bio format"}"#);
@@ -211,7 +211,7 @@ pub async fn patch_profile(
     if let Some(profile_pic) = data.profile_pic.as_mut() {
         *profile_pic = profile_pic.trim().to_string();
 
-        if !validate_profile_pic(profile_pic.clone()) {
+        if !validate_profile_pic(&profile_pic) {
             return HttpResponse::BadRequest()
                 .content_type(ContentType::json())
                 .body(r#"{"detail":"invalid profile pic format"}"#);

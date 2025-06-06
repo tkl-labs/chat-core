@@ -42,7 +42,7 @@ pub async fn post_login(
     let username = req_body.username.trim();
     let password = &req_body.password;
 
-    if !validate_existing_username(username.to_string()) {
+    if !validate_existing_username(&username) {
         return HttpResponse::Unauthorized()
             .content_type(ContentType::json())
             .body(r#"{"detail":"invalid login"}"#);

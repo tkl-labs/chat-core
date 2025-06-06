@@ -16,7 +16,7 @@ const SPECIAL_REGEX: &str = "[^a-zA-Z0-9]";
 const EMAIL_REGEX: &str = r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$";
 const PHONE_NUMBER_REGEX: &str = r"^\+?[0-9]{7,15}$";
 
-pub fn validate_existing_username(username: String) -> bool {
+pub fn validate_existing_username(username: &str) -> bool {
     let valid_username = (username.len() >= 8 && username.len() <= 16)
         && (username.chars().all(char::is_alphanumeric));
 
@@ -25,7 +25,7 @@ pub fn validate_existing_username(username: String) -> bool {
 
 pub async fn validate_new_username(
     pool: web::Data<PGPool>,
-    new_username: String,
+    new_username: &str,
 ) -> Result<bool, DieselError> {
     let valid_username = (new_username.len() >= 8 && new_username.len() <= 16)
         && (new_username.chars().all(char::is_alphanumeric));
@@ -44,7 +44,7 @@ pub async fn validate_new_username(
         })?;
 
         let user_result = users
-            .filter(username.ilike(&new_username))
+            .filter(username.ilike(new_username))
             .first::<User>(&mut conn)
             .await;
 
@@ -63,7 +63,7 @@ pub async fn validate_new_username(
 
 pub async fn validate_email(
     pool: web::Data<PGPool>,
-    new_email: String,
+    new_email: &str,
 ) -> Result<bool, DieselError> {
     let email_re = Regex::new(EMAIL_REGEX).unwrap();
     let valid_email = email_re.is_match(&new_email);
@@ -82,7 +82,7 @@ pub async fn validate_email(
         })?;
 
         let user_result = users
-            .filter(email.ilike(&new_email))
+            .filter(email.ilike(new_email))
             .first::<User>(&mut conn)
             .await;
 
@@ -101,10 +101,10 @@ pub async fn validate_email(
 
 pub async fn validate_phone_number(
     pool: web::Data<PGPool>,
-    new_phone_number: String,
+    new_phone_number: &str,
 ) -> Result<bool, DieselError> {
     let phone_re = Regex::new(PHONE_NUMBER_REGEX).unwrap();
-    let valid_phone_number = phone_re.is_match(&new_phone_number);
+    let valid_phone_number = phone_re.is_match(new_phone_number);
 
     if valid_phone_number {
         use crate::models::User;
@@ -120,7 +120,7 @@ pub async fn validate_phone_number(
         })?;
 
         let user_result = users
-            .filter(phone_number.eq(&new_phone_number))
+            .filter(phone_number.eq(new_phone_number))
             .first::<User>(&mut conn)
             .await;
 
@@ -152,13 +152,13 @@ pub fn validate_password(password: String) -> bool {
     valid_password
 }
 
-pub fn validate_bio(bio: String) -> bool {
+pub fn validate_bio(bio: &str) -> bool {
     let valid_bio = bio.len() >= 1 && bio.len() <= 500;
 
     valid_bio
 }
 
-pub fn validate_profile_pic(profile_pic: String) -> bool {
+pub fn validate_profile_pic(profile_pic: &str) -> bool {
     let valid_profile_pic = match BASE64_STANDARD.decode(profile_pic) {
         Ok(bytes) => match load_from_memory(&bytes) {
             Ok(_) => true,   // successfully decoded and parsed as an image
