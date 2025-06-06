@@ -59,16 +59,11 @@ pub async fn add_user_to_db(
         DieselError::DatabaseError(DieselDbError::UnableToSendCommand, Box::new(e.to_string()))
     })?;
 
-    let u = username.to_string();
-    let e = email.to_string();
-    let pn = phone_number.to_string();
-    let ph = password_hash.to_string();
-
     let new_user = RegisterUser {
-        username: u,
-        email: e,
-        phone_number: pn,
-        password_hash: ph,
+        username: username.to_string(),
+        email: email.to_string(),
+        phone_number: phone_number.to_string(),
+        password_hash: password_hash.to_string(),
     };
 
     insert_into(users::table)
