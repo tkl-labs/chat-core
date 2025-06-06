@@ -5,6 +5,7 @@ use uuid::Uuid;
 
 use crate::db::operations::PGPool;
 use crate::models::UpdateUser;
+use crate::services::csrf::verify_csrf_token;
 use crate::services::jwt::{JwtError, JwtTokenKind, decode_jwt_token};
 use crate::services::profile::{apply_profile_update, get_user_by_id};
 use crate::services::validate::{
@@ -96,6 +97,14 @@ pub async fn patch_profile(
         Utc::now().timestamp() as usize,
         req.peer_addr()
     );
+
+    let verify_csrf = verify_csrf_token(&req);
+
+    if !verify_csrf {
+        return HttpResponse::Unauthorized()
+            .content_type(ContentType::json())
+            .body(r#"{"detail":"csrf failed"}"#);
+    }
 
     // extract access token from cookie
     let access_token = match req.cookie("access_token") {
