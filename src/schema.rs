@@ -47,9 +47,4 @@ diesel::joinable!(group_members -> groups (group_id));
 diesel::joinable!(group_members -> users (user_id));
 diesel::joinable!(groups -> users (created_by));
 
-diesel::allow_tables_to_appear_in_same_query!(
-    friendships,
-    group_members,
-    groups,
-    users,
-);
+diesel::allow_tables_to_appear_in_same_query!(friendships, group_members, groups, users,);

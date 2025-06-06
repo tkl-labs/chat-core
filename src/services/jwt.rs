@@ -1,4 +1,4 @@
-use actix_web::{http::header::ContentType, HttpRequest, HttpResponse};
+use actix_web::{HttpRequest, HttpResponse, http::header::ContentType};
 use chrono::{Duration, Utc};
 use dotenv::dotenv;
 use jsonwebtoken::{
@@ -120,24 +120,24 @@ pub fn extract_user_id(req: &HttpRequest) -> Result<String, HttpResponse> {
     let access_token = req
         .cookie("access_token")
         .map(|c| c.value().to_string())
-        .ok_or_else(|| HttpResponse::Unauthorized()
-            .content_type(ContentType::json())
-            .body(r#"{"detail":"missing jwt token"}"#))?;
+        .ok_or_else(|| {
+            HttpResponse::Unauthorized()
+                .content_type(ContentType::json())
+                .body(r#"{"detail":"missing jwt token"}"#)
+        })?;
 
-    extract_user_id_from_jwt_token(access_token).map_err(|e| {
-        match e {
-            JwtError::Expired => HttpResponse::Unauthorized()
+    extract_user_id_from_jwt_token(access_token).map_err(|e| match e {
+        JwtError::Expired => HttpResponse::Unauthorized()
+            .content_type(ContentType::json())
+            .body(r#"{"detail":"access token expired"}"#),
+        JwtError::Invalid => HttpResponse::Unauthorized()
+            .content_type(ContentType::json())
+            .body(r#"{"detail":"invalid access token"}"#),
+        JwtError::Other(err) => {
+            eprintln!("JWT error: {:?}", err);
+            HttpResponse::Unauthorized()
                 .content_type(ContentType::json())
-                .body(r#"{"detail":"access token expired"}"#),
-            JwtError::Invalid => HttpResponse::Unauthorized()
-                .content_type(ContentType::json())
-                .body(r#"{"detail":"invalid access token"}"#),
-            JwtError::Other(err) => {
-                eprintln!("JWT error: {:?}", err);
-                HttpResponse::Unauthorized()
-                    .content_type(ContentType::json())
-                    .body(r#"{"detail":"token verification failed"}"#)
-            }
+                .body(r#"{"detail":"token verification failed"}"#)
         }
     })
 }

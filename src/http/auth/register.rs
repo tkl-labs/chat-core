@@ -103,7 +103,11 @@ pub async fn post_register(
     let password_hash = match bcrypt::hash(password, 10) {
         Ok(password_hash) => password_hash,
         Err(e) => {
-            eprintln!("{:?}: Login failed: {:?}", Utc::now().timestamp() as usize, e);
+            eprintln!(
+                "{:?}: Login failed: {:?}",
+                Utc::now().timestamp() as usize,
+                e
+            );
             return HttpResponse::InternalServerError()
                 .content_type(ContentType::json())
                 .body(r#"{"detail":"an unexpected error occurred"}"#);
@@ -168,7 +172,11 @@ pub async fn post_register(
             }
         }
         Err(e) => {
-            eprintln!("{:?}: Login failed: {:?}", Utc::now().timestamp() as usize, e);
+            eprintln!(
+                "{:?}: Login failed: {:?}",
+                Utc::now().timestamp() as usize,
+                e
+            );
             HttpResponse::InternalServerError()
                 .content_type(ContentType::json())
                 .body(r#"{"detail":"an unexpected error occurred"}"#)

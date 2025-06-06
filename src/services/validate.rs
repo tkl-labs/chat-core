@@ -61,10 +61,7 @@ pub async fn validate_new_username(
     }
 }
 
-pub async fn validate_email(
-    pool: web::Data<PGPool>,
-    new_email: &str,
-) -> Result<bool, DieselError> {
+pub async fn validate_email(pool: web::Data<PGPool>, new_email: &str) -> Result<bool, DieselError> {
     let email_re = Regex::new(EMAIL_REGEX).unwrap();
     let valid_email = email_re.is_match(&new_email);
 
