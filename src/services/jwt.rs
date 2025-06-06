@@ -1,8 +1,11 @@
 use chrono::{Duration, Utc};
 use dotenv::dotenv;
-use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, errors::ErrorKind, decode, encode};
+use jsonwebtoken::{
+    DecodingKey, EncodingKey, Header, Validation, decode, encode, errors::ErrorKind,
+};
 use serde::{Deserialize, Serialize};
 use std::env;
+use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
@@ -14,10 +17,13 @@ pub struct Claims {
     pub sub: String, // Optional. Subject (whom token refers to)
 }
 
+#[derive(Debug)]
 pub enum JwtTokenKind {
     ACCESS,
     REFRESH,
 }
+
+#[derive(Debug)]
 pub enum JwtError {
     Expired,
     Invalid,
@@ -108,4 +114,26 @@ pub fn generate_jwt_tokens_for_user(id: String) -> (String, String) {
 
 pub fn clear_jwt_tokens() -> (String, String) {
     ("".to_string(), "".to_string())
+}
+
+pub fn extract_user_id_from_jwt_token(access_token: String) -> Result<Uuid, JwtError> {
+    // decode and validate JWT token
+    let claim = match decode_jwt_token(access_token, JwtTokenKind::ACCESS) {
+        Ok(claim) => claim,
+        Err(JwtError::Expired) => return Err(JwtError::Expired),
+        Err(JwtError::Invalid) => return Err(JwtError::Invalid),
+        Err(JwtError::Other(e)) => {
+            eprintln!("JWT error: {:?}", e);
+            return Err(JwtError::Other(e.to_string()));
+        }
+    };
+
+    let user_id = claim.sub;
+
+    let user_uuid = match Uuid::parse_str(&user_id) {
+        Ok(value) => value,
+        Err(_) => return Err(JwtError::Invalid),
+    };
+
+    Ok(user_uuid)
 }

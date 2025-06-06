@@ -18,6 +18,16 @@ pub struct User {
     pub created_at: DateTime<Utc>,
 }
 
+#[derive(Queryable, Selectable)]
+#[diesel(table_name = crate::schema::friendships)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct Friendship {
+    pub user_id: Uuid,
+    pub friend_id: Uuid,
+    pub created_at: DateTime<Utc>,
+    pub friendship_status: String,
+}
+
 #[derive(Insertable)]
 #[diesel(table_name = crate::schema::users)]
 #[diesel(check_for_backend(diesel::pg::Pg))]

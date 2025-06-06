@@ -1,5 +1,7 @@
 mod auth;
 
+mod friend;
+
 mod profile;
 
 mod routes;

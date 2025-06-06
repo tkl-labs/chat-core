@@ -1,6 +1,15 @@
 // @generated automatically by Diesel CLI.
 
 diesel::table! {
+    friendships (user_id, friend_id) {
+        user_id -> Uuid,
+        friend_id -> Uuid,
+        created_at -> Timestamptz,
+        friendship_status -> Text,
+    }
+}
+
+diesel::table! {
     group_members (user_id, group_id) {
         user_id -> Uuid,
         group_id -> Uuid,
@@ -38,4 +47,9 @@ diesel::joinable!(group_members -> groups (group_id));
 diesel::joinable!(group_members -> users (user_id));
 diesel::joinable!(groups -> users (created_by));
 
-diesel::allow_tables_to_appear_in_same_query!(group_members, groups, users,);
+diesel::allow_tables_to_appear_in_same_query!(
+    friendships,
+    group_members,
+    groups,
+    users,
+);

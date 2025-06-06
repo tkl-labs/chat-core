@@ -33,3 +33,16 @@ CREATE TABLE "group_member" (
 );
 
 CREATE INDEX idx_group_member_group_id ON group_member (group_id);
+
+CREATE TABLE "friendships" (
+  user_id UUID NOT NULL,
+  friend_id UUID NOT NULL,
+  created_at TIMESTAMP DEFAULT now(),
+  friendship_status TEXT CHECK (friendship_status IN ('pending', 'accepted', 'blocked')),
+  PRIMARY KEY (user_id, friend_id),
+  CONSTRAINT fk_friend_user FOREIGN KEY (user_id) REFERENCES users(id),
+  CONSTRAINT fk_friend_friend FOREIGN KEY (friend_id) REFERENCES users(id)
+);
+
+CREATE INDEX idx_friendship_user_id ON friendships (user_id);
+CREATE INDEX idx_friendship_friend_id ON friendships (friend_id);
