@@ -1,5 +1,5 @@
-use actix_web::{web, HttpResponse};
 use actix_web::http::header::ContentType;
+use actix_web::{HttpResponse, web};
 use chrono::Utc;
 use diesel::prelude::*;
 use diesel::result::{DatabaseErrorKind as DieselDbError, Error as DieselError};
@@ -8,8 +8,8 @@ use uuid::Uuid;
 
 use crate::db::operations::PGPool;
 use crate::models::{CreateFriend, User};
-use crate::schema::users;
 use crate::schema::friend_request::dsl::friend_request;
+use crate::schema::users;
 
 #[derive(Debug)]
 pub enum AddFriendResult {
@@ -18,28 +18,24 @@ pub enum AddFriendResult {
     AlreadyFriends,
 }
 
-pub async fn send_friend_request(pool: web::Data<PGPool>, requesting_user_id: &str, receiver_username: &str) -> HttpResponse {
+pub async fn send_friend_request(
+    pool: web::Data<PGPool>,
+    requesting_user_id: &str,
+    receiver_username: &str,
+) -> HttpResponse {
     match add_friend_request_to_db(pool, requesting_user_id, receiver_username).await {
-        Ok(AddFriendResult::Created) => {
-            HttpResponse::Ok()
-                .content_type(ContentType::json())
-                .body(r#"{"detail":"friend request sent successfully"}"#)
-        },
-        Ok(AddFriendResult::AlreadyExists) => {
-            HttpResponse::BadRequest()
-                .content_type(ContentType::json())
-                .body(r#"{"detail":"friend request already exists"}"#)
-        },
-        Ok(AddFriendResult::AlreadyFriends) => {
-            HttpResponse::BadRequest()
-                .content_type(ContentType::json())
-                .body(r#"{"detail":"already friends with this user"}"#)
-        },
-        Err(_) => {
-            HttpResponse::InternalServerError()
-                .content_type(ContentType::json())
-                .body(r#"{"detail":"could not send friend request"}"#)
-        },
+        Ok(AddFriendResult::Created) => HttpResponse::Ok()
+            .content_type(ContentType::json())
+            .body(r#"{"detail":"friend request sent successfully"}"#),
+        Ok(AddFriendResult::AlreadyExists) => HttpResponse::BadRequest()
+            .content_type(ContentType::json())
+            .body(r#"{"detail":"friend request already exists"}"#),
+        Ok(AddFriendResult::AlreadyFriends) => HttpResponse::BadRequest()
+            .content_type(ContentType::json())
+            .body(r#"{"detail":"already friends with this user"}"#),
+        Err(_) => HttpResponse::InternalServerError()
+            .content_type(ContentType::json())
+            .body(r#"{"detail":"could not send friend request"}"#),
     }
 }
 
@@ -74,10 +70,10 @@ pub async fn add_friend_request_to_db(
 
     let is_already_friends = match f::friend
         .filter(
-            f::user1.eq(user_uuid)
+            f::user1
+                .eq(user_uuid)
                 .and(f::user2.eq(receiver_user.id))
-                .or(f::user1.eq(receiver_user.id)
-                    .and(f::user2.eq(user_uuid))),
+                .or(f::user1.eq(receiver_user.id).and(f::user2.eq(user_uuid))),
         )
         .select(f::user1)
         .first::<Uuid>(&mut conn)
@@ -92,12 +88,10 @@ pub async fn add_friend_request_to_db(
         return Ok(AddFriendResult::AlreadyFriends);
     }
 
-    let new_friend_request = vec![
-        CreateFriendRequest {
-            requester: user_uuid,
-            receiver: receiver_user.id,
-        },
-    ];
+    let new_friend_request = vec![CreateFriendRequest {
+        requester: user_uuid,
+        receiver: receiver_user.id,
+    }];
 
     let result = insert_into(friend_request)
         .values(&new_friend_request)
@@ -138,9 +132,7 @@ pub async fn get_all_friends(
     })?;
 
     let results: Vec<User> = users::table
-        .inner_join(friend::table.on(
-            friend::user1.eq(user_uuid).or(friend::user2.eq(user_uuid)),
-        ))
+        .inner_join(friend::table.on(friend::user1.eq(user_uuid).or(friend::user2.eq(user_uuid))))
         .filter(friend::user1.eq(user_uuid).or(friend::user2.eq(user_uuid)))
         .filter(users::id.ne(user_uuid))
         .select(users::all_columns)
@@ -184,14 +176,83 @@ pub async fn get_all_friend_requests(
     })
 }
 
+pub async fn remove_friend(
+    pool: web::Data<PGPool>,
+    user_id: &str,
+    removed_friend_id: &str,
+) -> HttpResponse {
+    use crate::schema::friend::dsl as f;
+
+    let mut conn = match pool.get().await {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!(
+                "{}: Failed to acquire DB connection: {:?}",
+                Utc::now().timestamp(),
+                e
+            );
+            return HttpResponse::InternalServerError()
+                .content_type(ContentType::json())
+                .body(r#"{"detail":"Database connection error"}"#);
+        }
+    };
+
+    let user_uuid = match Uuid::parse_str(user_id) {
+        Ok(uuid) => uuid,
+        Err(e) => {
+            eprintln!("{}: Invalid user_id UUID: {:?}", Utc::now().timestamp(), e);
+            return HttpResponse::BadRequest()
+                .content_type(ContentType::json())
+                .body(r#"{"detail":"Invalid user_id UUID"}"#);
+        }
+    };
+
+    let removed_friend_uuid = match Uuid::parse_str(removed_friend_id) {
+        Ok(uuid) => uuid,
+        Err(e) => {
+            eprintln!(
+                "{}: Invalid removed_friend_id UUID: {:?}",
+                Utc::now().timestamp(),
+                e
+            );
+            return HttpResponse::BadRequest()
+                .content_type(ContentType::json())
+                .body(r#"{"detail":"Invalid removed_friend_id UUID"}"#);
+        }
+    };
+
+    let rows_deleted = diesel::delete(
+        f::friend.filter(
+            f::user1
+                .eq(user_uuid)
+                .and(f::user2.eq(removed_friend_uuid))
+                .or(f::user1.eq(removed_friend_uuid).and(f::user2.eq(user_uuid))),
+        ),
+    )
+    .execute(&mut conn)
+    .await;
+
+    match rows_deleted {
+        Ok(_) => HttpResponse::Ok()
+            .content_type(ContentType::json())
+            .body(r#"{"detail":"friend removed successfully"}"#),
+        Err(e) => {
+            eprintln!("DB insert error: {:?}", e);
+            HttpResponse::InternalServerError()
+                .content_type(ContentType::json())
+                .body(r#"{"detail":"internal server error"}"#)
+        }
+    }
+}
+
 pub async fn update_friend_request(
     pool: web::Data<PGPool>,
     responding_user_id: &str,
     requesting_user_id: &str,
     accept: bool,
 ) -> HttpResponse {
-    use crate::schema::friend_request::dsl as fr;
     use crate::schema::friend::dsl as f;
+    use crate::schema::friend_request::dsl as fr;
 
     let mut conn = match pool.get().await {
         Ok(c) => c,
@@ -236,17 +297,17 @@ pub async fn update_friend_request(
     };
 
     let rows_deleted = diesel::delete(
-            friend_request.filter(
-                fr::receiver
-                    .eq(responding_uuid)
-                    .and(fr::requester.eq(requesting_uuid)),
-            ),
-        )
-        .execute(&mut conn)
-        .await;
+        friend_request.filter(
+            fr::receiver
+                .eq(responding_uuid)
+                .and(fr::requester.eq(requesting_uuid)),
+        ),
+    )
+    .execute(&mut conn)
+    .await;
 
     match rows_deleted {
-        Ok(_) => {},
+        Ok(_) => {}
         Err(e) => {
             eprintln!("DB insert error: {:?}", e);
             return HttpResponse::InternalServerError()

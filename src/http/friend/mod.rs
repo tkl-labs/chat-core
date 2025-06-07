@@ -1,5 +1,5 @@
-pub mod friendship;
-use friendship::{delete_remove, get_all, patch_add, post_add, get_friend_requests};
+pub mod friend;
+use friend::{delete_remove, get_all, get_friend_requests, patch_add, post_add};
 
 use actix_web::web;
 

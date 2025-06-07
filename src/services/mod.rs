@@ -2,7 +2,7 @@ pub mod auth;
 
 pub mod csrf;
 
-pub mod friendship;
+pub mod friend;
 
 pub mod jwt;
 
