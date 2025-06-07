@@ -7,7 +7,7 @@ use serde::Deserialize;
 use crate::db::operations::PGPool;
 use crate::services::csrf::verify_csrf_token;
 use crate::services::friendship::{
-    add_friend, get_all_friend_requests, get_all_friends, update_friend_request,
+    get_all_friend_requests, get_all_friends, send_friend_request, update_friend_request,
 };
 use crate::services::jwt::{extract_user_id, JwtTokenKind};
 use crate::services::validate::validate_existing_username;
@@ -106,7 +106,7 @@ pub async fn post_add(
             .body(r#"{"detail":"invalid username"}"#);
     }
 
-    if add_friend(pool, &user_id, &username).await {
+    if send_friend_request(pool, &user_id, &username).await {
         HttpResponse::Ok()
             .content_type(ContentType::json())
             .body(r#"{"detail":"friend request sent"}"#)

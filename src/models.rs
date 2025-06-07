@@ -19,13 +19,27 @@ pub struct User {
 }
 
 #[derive(Queryable, Selectable, Serialize)]
-#[diesel(table_name = crate::schema::friendships)]
+#[diesel(table_name = crate::schema::friend)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
-pub struct Friendship {
-    pub user_id: Uuid,
-    pub friend_id: Uuid,
-    pub created_at: DateTime<Utc>,
-    pub friendship_status: String,
+pub struct Friend {
+    pub user1: Uuid,
+    pub user2: Uuid,
+}
+
+#[derive(Insertable)]
+#[diesel(table_name = crate::schema::friend)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct CreateFriend {
+    pub user1: Uuid,
+    pub user2: Uuid,
+}
+
+#[derive(Insertable)]
+#[diesel(table_name = crate::schema::friend_request)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct CreateFriendRequest {
+    pub requester: Uuid,
+    pub receiver: Uuid,
 }
 
 #[derive(Insertable)]
@@ -54,13 +68,4 @@ pub struct UpdateUser {
     pub phone_number: Option<String>,
     pub bio: Option<String>,
     pub profile_pic: Option<String>,
-}
-
-#[derive(Insertable)]
-#[diesel(table_name = crate::schema::friendships)]
-#[diesel(check_for_backend(diesel::pg::Pg))]
-pub struct CreateFriendship {
-    pub user_id: Uuid,
-    pub friend_id: Uuid,
-    pub friendship_status: String,
 }
