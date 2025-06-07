@@ -9,7 +9,7 @@ use uuid::Uuid;
 use crate::db::operations::PGPool;
 use crate::models::UpdateUser;
 use crate::services::csrf::verify_csrf_token;
-use crate::services::jwt::{extract_user_id, JwtTokenKind};
+use crate::services::jwt::{JwtTokenKind, extract_user_id};
 use crate::services::profile::{apply_profile_update, get_user_by_id};
 use crate::services::validate::{
     validate_bio, validate_email, validate_new_username, validate_phone_number,

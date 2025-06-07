@@ -116,7 +116,10 @@ pub fn clear_jwt_tokens() -> (String, String) {
     ("".to_string(), "".to_string())
 }
 
-pub fn extract_user_id(req: &HttpRequest, token_kind: JwtTokenKind) -> Result<String, HttpResponse> {
+pub fn extract_user_id(
+    req: &HttpRequest,
+    token_kind: JwtTokenKind,
+) -> Result<String, HttpResponse> {
     let cookie_name = match token_kind {
         JwtTokenKind::ACCESS => "access_token",
         JwtTokenKind::REFRESH => "refresh_token",
@@ -126,7 +129,7 @@ pub fn extract_user_id(req: &HttpRequest, token_kind: JwtTokenKind) -> Result<St
         .cookie(cookie_name)
         .map(|c| c.value().to_string())
         .ok_or_else(|| {
-                HttpResponse::Unauthorized()
+            HttpResponse::Unauthorized()
                 .content_type(ContentType::json())
                 .body(r#"{"detail":"missing jwt token"}"#)
         })?;
@@ -147,7 +150,10 @@ pub fn extract_user_id(req: &HttpRequest, token_kind: JwtTokenKind) -> Result<St
     })
 }
 
-pub fn extract_user_id_from_jwt_token(jwt_token: String, token_kind: JwtTokenKind) -> Result<String, JwtError> {
+pub fn extract_user_id_from_jwt_token(
+    jwt_token: String,
+    token_kind: JwtTokenKind,
+) -> Result<String, JwtError> {
     // decode and validate JWT token
     let claim = match decode_jwt_token(&jwt_token, token_kind) {
         Ok(claim) => claim,
