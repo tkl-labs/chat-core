@@ -156,13 +156,17 @@ pub fn validate_bio(bio: &str) -> bool {
 }
 
 pub fn validate_profile_pic(profile_pic: &str) -> bool {
-    let valid_profile_pic = match BASE64_STANDARD.decode(profile_pic) {
-        Ok(bytes) => match load_from_memory(&bytes) {
-            Ok(_) => true,   // successfully decoded and parsed as an image
-            Err(_) => false, // not a valid image
-        },
-        Err(_) => false, // not valid base64
+    // remove the "data:image/..." prefix
+    let base64_data = if let Some(idx) = profile_pic.find(",") {
+        &profile_pic[idx + 1..]
+    } else {
+        profile_pic
     };
 
-    valid_profile_pic
+    // decode and load as an image
+    BASE64_STANDARD
+        .decode(base64_data)
+        .ok()
+        .and_then(|bytes| load_from_memory(&bytes).ok())
+        .is_some()
 }

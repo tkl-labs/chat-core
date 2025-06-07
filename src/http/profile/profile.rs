@@ -164,8 +164,6 @@ pub async fn patch_profile(
     }
 
     if let Some(profile_pic) = data.profile_pic.as_mut() {
-        *profile_pic = profile_pic.trim().to_string();
-
         if !validate_profile_pic(&profile_pic) {
             return HttpResponse::BadRequest()
                 .content_type(ContentType::json())
