@@ -16,8 +16,8 @@ pub async fn post_refresh(pool: web::Data<PGPool>, req: HttpRequest) -> impl Res
         req.peer_addr()
     );
 
-    // extract user id from access token
-    let user_id = match extract_user_id(&req) {
+    // extract user id from refresh token
+    let user_id = match extract_user_id(&req, JwtTokenKind::REFRESH) {
         Ok(id) => id,
         Err(resp) => return resp,
     };

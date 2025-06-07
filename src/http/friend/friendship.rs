@@ -9,7 +9,7 @@ use crate::services::csrf::verify_csrf_token;
 use crate::services::friendship::{
     add_friend, get_all_friend_requests, get_all_friends, update_friend_request,
 };
-use crate::services::jwt::extract_user_id;
+use crate::services::jwt::{extract_user_id, JwtTokenKind};
 use crate::services::validate::validate_existing_username;
 
 #[derive(Deserialize)]
@@ -40,7 +40,7 @@ pub async fn delete_remove(_pool: web::Data<PGPool>, req: HttpRequest) -> impl R
     }
 
     // extract user id from access token
-    let _user_id = match extract_user_id(&req) {
+    let _user_id = match extract_user_id(&req, JwtTokenKind::ACCESS) {
         Ok(id) => id,
         Err(resp) => return resp,
     };
@@ -57,7 +57,7 @@ pub async fn get_all(pool: web::Data<PGPool>, req: HttpRequest) -> impl Responde
     );
 
     // extract user id from access token
-    let user_id = match extract_user_id(&req) {
+    let user_id = match extract_user_id(&req, JwtTokenKind::ACCESS) {
         Ok(id) => id,
         Err(resp) => return resp,
     };
@@ -93,7 +93,7 @@ pub async fn post_add(
     }
 
     // extract user id from access token
-    let user_id = match extract_user_id(&req) {
+    let user_id = match extract_user_id(&req, JwtTokenKind::ACCESS) {
         Ok(id) => id,
         Err(resp) => return resp,
     };
@@ -138,7 +138,7 @@ pub async fn patch_add(
     }
 
     // extract user id from access token
-    let responding_user_id = match extract_user_id(&req) {
+    let responding_user_id = match extract_user_id(&req, JwtTokenKind::ACCESS) {
         Ok(id) => id,
         Err(resp) => return resp,
     };
@@ -166,7 +166,7 @@ pub async fn patch_add(
 
 #[get("/requests")]
 pub async fn get_friend_requests(pool: web::Data<PGPool>, req: HttpRequest) -> impl Responder {
-    let user_id = match extract_user_id(&req) {
+    let user_id = match extract_user_id(&req, JwtTokenKind::ACCESS) {
         Ok(id) => id,
         Err(resp) => return resp,
     };

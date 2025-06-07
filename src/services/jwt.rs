@@ -34,7 +34,7 @@ fn create_jwt_claims(user_id: String, token_type: JwtTokenKind) -> Claims {
     let now = Utc::now();
 
     let exp = match token_type {
-        JwtTokenKind::ACCESS => (now + Duration::minutes(15)).timestamp() as usize,
+        JwtTokenKind::ACCESS => (now + Duration::seconds(1)).timestamp() as usize,
         JwtTokenKind::REFRESH => (now + Duration::days(7)).timestamp() as usize,
     };
 
@@ -116,17 +116,22 @@ pub fn clear_jwt_tokens() -> (String, String) {
     ("".to_string(), "".to_string())
 }
 
-pub fn extract_user_id(req: &HttpRequest) -> Result<String, HttpResponse> {
-    let access_token = req
-        .cookie("access_token")
+pub fn extract_user_id(req: &HttpRequest, token_kind: JwtTokenKind) -> Result<String, HttpResponse> {
+    let cookie_name = match token_kind {
+        JwtTokenKind::ACCESS => "access_token",
+        JwtTokenKind::REFRESH => "refresh_token",
+    };
+
+    let jwt_token = req
+        .cookie(cookie_name)
         .map(|c| c.value().to_string())
         .ok_or_else(|| {
-            HttpResponse::Unauthorized()
+                HttpResponse::Unauthorized()
                 .content_type(ContentType::json())
                 .body(r#"{"detail":"missing jwt token"}"#)
         })?;
 
-    extract_user_id_from_jwt_token(access_token).map_err(|e| match e {
+    extract_user_id_from_jwt_token(jwt_token, token_kind).map_err(|e| match e {
         JwtError::Expired => HttpResponse::Unauthorized()
             .content_type(ContentType::json())
             .body(r#"{"detail":"access token expired"}"#),
@@ -142,9 +147,9 @@ pub fn extract_user_id(req: &HttpRequest) -> Result<String, HttpResponse> {
     })
 }
 
-pub fn extract_user_id_from_jwt_token(access_token: String) -> Result<String, JwtError> {
+pub fn extract_user_id_from_jwt_token(jwt_token: String, token_kind: JwtTokenKind) -> Result<String, JwtError> {
     // decode and validate JWT token
-    let claim = match decode_jwt_token(&access_token, JwtTokenKind::ACCESS) {
+    let claim = match decode_jwt_token(&jwt_token, token_kind) {
         Ok(claim) => claim,
         Err(JwtError::Expired) => return Err(JwtError::Expired),
         Err(JwtError::Invalid) => return Err(JwtError::Invalid),

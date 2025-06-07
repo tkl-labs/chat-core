@@ -73,7 +73,7 @@ pub async fn post_login(
             let access_cookie = Cookie::build("access_token", access_token)
                 .secure(false) // Use `true` in production
                 .http_only(true)
-                .max_age(time::Duration::minutes(15))
+                .max_age(time::Duration::seconds(1))
                 .same_site(SameSite::Lax)
                 .path("/")
                 .domain("127.0.0.1")
