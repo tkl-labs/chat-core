@@ -1,6 +1,6 @@
 use actix_web::http::header::ContentType;
 use actix_web::web;
-use actix_web::{HttpRequest, HttpResponse, Responder, delete, get, patch, post};
+use actix_web::{HttpRequest, HttpResponse, Responder, get, patch, post};
 use chrono::Utc;
 use serde::Deserialize;
 
@@ -29,14 +29,14 @@ struct FriendRequestForm {
     accept: bool,
 }
 
-#[delete("/remove")]
-pub async fn delete_remove(
+#[post("/remove")]
+pub async fn post_remove(
     pool: web::Data<PGPool>,
     req: HttpRequest,
     req_body: web::Json<RemoveFriendForm>,
 ) -> impl Responder {
     println!(
-        "{:?}: DELETE /friend/remove from {:?}",
+        "{:?}: POST /friend/remove from {:?}",
         Utc::now().timestamp() as usize,
         req.peer_addr()
     );
