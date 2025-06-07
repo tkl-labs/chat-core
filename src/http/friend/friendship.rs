@@ -106,15 +106,7 @@ pub async fn post_add(
             .body(r#"{"detail":"invalid username"}"#);
     }
 
-    if send_friend_request(pool, &user_id, &username).await {
-        HttpResponse::Ok()
-            .content_type(ContentType::json())
-            .body(r#"{"detail":"friend request sent"}"#)
-    } else {
-        HttpResponse::NotFound()
-            .content_type(ContentType::json())
-            .body(r#"{"detail":"could not send friend request"}"#)
-    }
+    send_friend_request(pool, &user_id, &username).await
 }
 
 #[patch("/add")]
@@ -146,22 +138,7 @@ pub async fn patch_add(
     let requesting_user_id = req_body.requesting_user_id.trim();
     let accept = req_body.accept;
 
-    match update_friend_request(pool, &responding_user_id, &requesting_user_id, accept).await {
-        Ok(_) => {
-            if accept {
-                HttpResponse::Ok()
-                    .content_type(ContentType::json())
-                    .body(r#"{"detail":"friend request accepted"}"#)
-            } else {
-                HttpResponse::Ok()
-                    .content_type(ContentType::json())
-                    .body(r#"{"detail":"friend request declined"}"#)
-            }
-        }
-        Err(_) => HttpResponse::NotFound()
-            .content_type(ContentType::json())
-            .body(r#"{"detail":"could not send friend request"}"#),
-    }
+    update_friend_request(pool, &responding_user_id, &requesting_user_id, accept).await
 }
 
 #[get("/requests")]
