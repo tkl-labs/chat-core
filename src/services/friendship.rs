@@ -3,6 +3,7 @@ use chrono::Utc;
 use diesel::prelude::*;
 use diesel::result::{DatabaseErrorKind as DieselDbError, Error as DieselError};
 use diesel_async::RunQueryDsl;
+use serde::Serialize;
 use uuid::Uuid;
 
 use crate::db::operations::PGPool;
@@ -11,7 +12,13 @@ use crate::db::operations::PGPool;
 pub enum AddFriendResult {
     Created,
     AlreadyExists,
+}
 
+#[derive(Serialize)]
+pub struct FriendRequestDTO {
+    pub from_user_id: Uuid,
+    pub from_username: String,
+    pub status: String,
 }
 
 pub async fn add_friend(pool: web::Data<PGPool>, user_id: &str, friend_username: &str) -> bool {
@@ -114,6 +121,44 @@ pub async fn get_all_friends(
         eprintln!("JSON serialization error: {:?}", e);
         DieselError::SerializationError(Box::new(e))
     })
+}
+
+pub async fn get_all_friend_requests(
+    pool: web::Data<PGPool>,
+    user_id: &str,
+) -> Result<Vec<FriendRequestDTO>, DieselError> {
+    use crate::schema::friendships::dsl as f;
+    use crate::schema::users::dsl as u;
+
+    let mut conn = pool.get().await.map_err(|e| {
+        eprintln!(
+            "{:?}: Failed to acquire DB connection: {:?}",
+            Utc::now().timestamp() as usize,
+            e
+        );
+        DieselError::DatabaseError(DieselDbError::UnableToSendCommand, Box::new(e.to_string()))
+    })?;
+
+    let user_uuid = Uuid::parse_str(user_id).map_err(|_| DieselError::NotFound)?;
+
+    let results = f::friendships
+        .filter(f::friend_id.eq(user_uuid))
+        .filter(f::friendship_status.eq("pending"))
+        .inner_join(u::users.on(f::user_id.eq(u::id)))
+        .select((u::id, u::username, f::friendship_status))
+        .load::<(Uuid, String, String)>(&mut conn)
+        .await?;
+
+    let requests = results
+        .into_iter()
+        .map(|(from_id, from_username, status)| FriendRequestDTO {
+            from_user_id: from_id,
+            from_username,
+            status,
+        })
+        .collect();
+
+    Ok(requests)
 }
 
 pub async fn update_friend_request(

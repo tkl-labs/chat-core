@@ -6,7 +6,9 @@ use serde::Deserialize;
 
 use crate::db::operations::PGPool;
 use crate::services::csrf::verify_csrf_token;
-use crate::services::friendship::{add_friend, get_all_friends, update_friend_request};
+use crate::services::friendship::{
+    add_friend, get_all_friend_requests, get_all_friends, update_friend_request,
+};
 use crate::services::jwt::extract_user_id;
 use crate::services::validate::validate_existing_username;
 
@@ -159,5 +161,22 @@ pub async fn patch_add(
         Err(_) => HttpResponse::NotFound()
             .content_type(ContentType::json())
             .body(r#"{"detail":"could not send friend request"}"#),
+    }
+}
+
+#[get("/requests")]
+pub async fn get_friend_requests(pool: web::Data<PGPool>, req: HttpRequest) -> impl Responder {
+    let user_id = match extract_user_id(&req) {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
+
+    match get_all_friend_requests(pool, &user_id).await {
+        Ok(requests) => HttpResponse::Ok()
+            .content_type(ContentType::json())
+            .json(requests),
+        Err(_) => HttpResponse::InternalServerError()
+            .content_type(ContentType::json())
+            .body("failed to get friend requests"),
     }
 }
