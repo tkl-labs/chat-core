@@ -136,6 +136,7 @@ pub async fn get_all_friends(
         .filter(friend::user1.eq(user_uuid).or(friend::user2.eq(user_uuid)))
         .filter(users::id.ne(user_uuid))
         .select(users::all_columns)
+        .distinct()
         .load(&mut conn)
         .await?;
 
