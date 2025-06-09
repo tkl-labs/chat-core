@@ -1,0 +1,6 @@
+# Ignore target directories from all crates
+**/target
+
+# Ignore version control
+.git
+.gitignore

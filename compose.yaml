@@ -1,6 +1,42 @@
 services:
+  auth-service:
+    build:
+      context: .
+      dockerfile: auth-service/Dockerfile
+    container_name: auth-service
+    depends_on:
+      - postgres
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+
+  friend-service:
+    build:
+      context: .
+      dockerfile: friend-service/Dockerfile
+    container_name: friend-service
+    depends_on:
+      - postgres
+    ports:
+      - "8081:8081"
+    env_file:
+      - .env
+
+  profile-service:
+    build:
+      context: .
+      dockerfile: profile-service/Dockerfile
+    container_name: profile-service
+    depends_on:
+      - postgres
+    ports:
+      - "8082:8082"
+    env_file:
+      - .env
+
   mongo:
-    image: mongo:8.0
+    image: mongo:8.0-noble
     restart: always
     container_name: db_mongo_messages
     environment:
