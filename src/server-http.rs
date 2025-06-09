@@ -1,10 +1,11 @@
 use lib::db::operations::init_pool;
+use lib::http::*;
 
 use chrono::Utc;
-use std::io::{Error, ErrorKind};
+use std::io::{Error, ErrorKind, Result};
 
 #[actix_web::main]
-async fn main() -> std::io::Result<()> {
+async fn main() -> Result<()> {
     let result = init_pool(5).await;
 
     let pool = match result {
@@ -21,5 +22,5 @@ async fn main() -> std::io::Result<()> {
         }
     };
 
-    lib::http::start_http_server(pool).await
+    start_http_server(pool).await
 }
