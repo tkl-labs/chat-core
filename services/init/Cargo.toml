@@ -1,0 +1,12 @@
+[package]
+name = "init"
+version = "0.1.0"
+authors = ["@lewisrye"]
+edition = "2024"
+description = "The backend of TKL Chat, made with Rust"
+readme = "../../README.md"
+repository = "https://github.com/tkl-labs/chat-core"
+license = "GPL-3.0"
+
+[dependencies]
+diesel = { version = "2.2.0", features = ["postgres"] }

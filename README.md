@@ -11,12 +11,18 @@ Follow the steps below to get up and running with TKL Chat:
 ### 1. Start Docker Containers
 
 ```bash
-docker compose up -d
+docker compose -f "compose.yaml" -p "chat-core" up -d
 ```
 
-This command will launch all necessary services defined in `compose.yaml`.
+This command will launch all necessary services defined in `compose.yaml`. *Alternatively, to run the debug version of the application (for smaller compile times), there is a separate Docker Compose file. To run the dev version:*
 
-### 2. Initialize the Database
+```bash
+docker compose -f "compose.dev.yaml" -p "chat-core-dev" up -d
+```
+
+> ⚠️ Without nginx running on Docker, the ports for each service will differ while developing, please keep this in mind.
+
+### 2. Initialize the Database (not required if running Docker Compose)
 
 ```bash
 cargo install diesel_cli --no-default-features --features postgres
@@ -33,17 +39,6 @@ To remove containers **and** their volumes completely:
 ```bash
 docker compose -f "compose.yaml" down -v
 ```
-
-## Developing the Application
-
-### 1. Start the individual services
-
-To develop the services independently (without building all using Docker Compose), for each service, run:
-```bash
-cargo run
-```
-
-> ⚠️ Without nginx running on Docker, the ports for each service will differ while developing, please keep this in mind.
 
 ## Tech Stack
 
