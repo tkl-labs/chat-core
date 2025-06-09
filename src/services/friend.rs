@@ -132,9 +132,12 @@ pub async fn get_all_friends(
     })?;
 
     let results: Vec<User> = users::table
-        .inner_join(friend::table.on(friend::user1.eq(user_uuid).or(friend::user2.eq(user_uuid))))
-        .filter(friend::user1.eq(user_uuid).or(friend::user2.eq(user_uuid)))
-        .filter(users::id.ne(user_uuid))
+        .inner_join(friend::table.on(
+            users::id
+                .eq(friend::user1)
+                .and(friend::user2.eq(user_uuid))
+                .or(users::id.eq(friend::user2).and(friend::user1.eq(user_uuid))),
+        ))
         .select(users::all_columns)
         .distinct()
         .load(&mut conn)
