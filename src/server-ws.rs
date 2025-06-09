@@ -1,3 +1,8 @@
-fn main() {
-    todo!("websocket server is not implemented yet");
+use lib::ws::*;
+
+use std::io::Result;
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    start_ws_server().await
 }

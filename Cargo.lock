@@ -571,6 +571,7 @@ dependencies = [
  "diesel",
  "diesel-async",
  "dotenv",
+ "futures-util",
  "image",
  "jsonwebtoken",
  "regex",
@@ -578,7 +579,6 @@ dependencies = [
  "serde_json",
  "tokio",
  "tokio-tungstenite",
- "url",
  "uuid",
 ]
 
@@ -2658,7 +2658,6 @@ dependencies = [
  "rand 0.9.1",
  "sha1",
  "thiserror 2.0.12",
- "url",
  "utf-8",
 ]
 
