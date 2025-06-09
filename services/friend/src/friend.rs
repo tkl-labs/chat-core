@@ -208,10 +208,10 @@ pub async fn add_friend_request_to_db(
     requesting_id: &str,
     responding_username: &str,
 ) -> Result<AddFriendResult, DieselError> {
+    use diesel::insert_into;
     use shared::models::{CreateFriendRequest, User};
     use shared::schema::friend::dsl as f;
     use shared::schema::users::dsl as u;
-    use diesel::insert_into;
 
     let mut conn = pool.get().await.map_err(|e| {
         eprintln!("{}: Failed to get DB connection: {:?}", Utc::now(), e);
@@ -296,12 +296,12 @@ pub async fn get_all_friends(
     })?;
 
     let results: Vec<User> = users::table
-        .inner_join(friend::table.on(
-            users::id
+        .inner_join(
+            friend::table.on(users::id
                 .eq(friend::user1)
                 .and(friend::user2.eq(user_uuid))
-                .or(users::id.eq(friend::user2).and(friend::user1.eq(user_uuid))),
-        ))
+                .or(users::id.eq(friend::user2).and(friend::user1.eq(user_uuid)))),
+        )
         .select(users::all_columns)
         .distinct()
         .load(&mut conn)
@@ -397,8 +397,8 @@ pub async fn remove_friend(
                 .or(f::user1.eq(removed_friend_uuid).and(f::user2.eq(user_uuid))),
         ),
     )
-        .execute(&mut conn)
-        .await;
+    .execute(&mut conn)
+    .await;
 
     match rows_deleted {
         Ok(_) => HttpResponse::Ok()
@@ -471,8 +471,8 @@ pub async fn update_friend_request(
                 .and(fr::requester.eq(requesting_uuid)),
         ),
     )
-        .execute(&mut conn)
-        .await;
+    .execute(&mut conn)
+    .await;
 
     match rows_deleted {
         Ok(_) => {}

@@ -4,8 +4,7 @@ use actix_web::web;
 static SCOPE_HANDLERS: &[(&str, fn(&mut web::ServiceConfig))] = &[("profile", routes)];
 
 pub fn routes(cfg: &mut web::ServiceConfig) {
-    cfg.service(get_profile)
-        .service(patch_profile);
+    cfg.service(get_profile).service(patch_profile);
 }
 
 pub fn apply_routes(cfg: &mut web::ServiceConfig) {

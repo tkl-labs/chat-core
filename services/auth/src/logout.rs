@@ -1,6 +1,6 @@
-use actix_web::{HttpRequest, HttpResponse, Responder, post};
 use actix_web::cookie::{Cookie, SameSite, time};
 use actix_web::http::header::ContentType;
+use actix_web::{HttpRequest, HttpResponse, Responder, post};
 use chrono::Utc;
 
 use shared::jwt::{JwtTokenKind, encode_jwt_token};

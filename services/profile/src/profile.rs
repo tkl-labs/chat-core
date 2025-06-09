@@ -6,10 +6,10 @@ use chrono::Utc;
 use serde_json::to_string;
 use uuid::Uuid;
 
-use shared::database::PGPool;
-use shared::models::UpdateUser;
 use shared::csrf::verify_csrf_token;
+use shared::database::PGPool;
 use shared::jwt::{JwtTokenKind, extract_user_id};
+use shared::models::UpdateUser;
 use shared::profile::{apply_profile_update, get_user_by_id};
 use shared::validate::{
     validate_bio, validate_email, validate_new_username, validate_phone_number,
