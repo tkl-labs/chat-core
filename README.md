@@ -11,7 +11,7 @@ Follow the steps below to get up and running with TKL Chat:
 ### 1. Start Docker Containers
 
 ```bash
-docker compose -f "compose.yaml" up -d
+docker compose up -d
 ```
 
 This command will launch all necessary services defined in `compose.yaml`.
@@ -24,31 +24,26 @@ diesel setup
 diesel migration run
 ```
 
-This command will create and setup the PostgreSQL database.
+This command will setup the PostgreSQL database.
 
-### 3. Run the HTTP Server
-
-This server handles users, groups, and authentication logic:
-
-```bash
-cargo run --bin http
-```
-
-### 4. Run the WebSocket Server
-
-This server handles real-time messaging and media transfer:
-
-```bash
-cargo run --bin ws
-```
-
-### 5. Tear Down Docker Containers and Volumes
+### 3. Tear Down Docker Containers and Volumes
 
 To remove containers **and** their volumes completely:
 
 ```bash
 docker compose -f "compose.yaml" down -v
 ```
+
+## Developing the Application
+
+### 1. Start the individual services
+
+To develop the services independently (without building all using Docker Compose), for each service, run:
+```bash
+cargo run
+```
+
+> ⚠️ Without nginx running on Docker, the ports for each service will differ while developing, please keep this in mind.
 
 ## Tech Stack
 

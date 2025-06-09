@@ -1,41 +1,8 @@
-[package]
-name = "chat-core"
-version = "0.1.0"
-authors = ["@koushicsumathikumar", "@lewisrye", "@taiseiyokoshima"]
-edition = "2024"
-description = "The backend of TKL Chat, made with Rust"
-readme = "README.md"
-repository = "https://github.com/tkl-labs/chat-core"
-license = "GPL-3.0"
-
-[lib]
-name = "lib"
-path = "src/lib.rs"
-
-[[bin]]
-name = "http"
-path = "src/server-http.rs"
-
-[[bin]]
-name = "ws"
-path = "src/server-ws.rs"
-
-[dependencies]
-actix-cors = "0.7.1"
-actix-web = "4.11.0"
-base64 = "0.22.1"
-bcrypt = "0.17.0"
-chrono = { version = "0.4.41", features = ["serde"] }
-csrf = "0.5.0"
-diesel = { version = "2.2.10", features = ["chrono", "postgres", "uuid"] }
-diesel-async = { version = "0.5.2", features = ["postgres", "pool", "deadpool"] }
-dotenv = "0.15.0"
-image = "0.25.6"
-jsonwebtoken = "9"
-regex = "1.11.1"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0.140"
-tokio = { version = "1.45.1", features = ["full"] }
-tokio-tungstenite = "0.26.2"
-uuid = { version = "1.17.0", features = ["serde", "v4"] }
-futures-util = "0.3.31"
+[workspace]
+members = [
+    "services/auth",
+    "services/friend",
+    "services/profile",
+    "shared"
+]
+resolver = "3"

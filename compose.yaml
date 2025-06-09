@@ -1,8 +1,50 @@
 services:
+  svc-auth:
+    build:
+      context: .
+      dockerfile: services/auth/Dockerfile
+    container_name: svc-auth
+    depends_on:
+      - postgres
+    env_file:
+      - .env
+
+  svc-friend:
+    build:
+      context: .
+      dockerfile: services/friend/Dockerfile
+    container_name: svc-friend
+    depends_on:
+      - postgres
+    env_file:
+      - .env
+
+  svc-profile:
+    build:
+      context: .
+      dockerfile: services/profile/Dockerfile
+    container_name: svc-profile
+    depends_on:
+      - postgres
+    env_file:
+      - .env
+
+  nginx:
+    image: nginx:1.27
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    container_name: nginx
+    depends_on:
+      - svc-auth
+      - svc-friend
+      - svc-profile
+      
   mongo:
-    image: mongo:8.0
+    image: mongo:8.0-noble
     restart: always
-    container_name: db_mongo_messages
+    container_name: db-mongo
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
@@ -15,7 +57,7 @@ services:
   postgres:
     image: postgres:17.5
     restart: always
-    container_name: db_postgres_users
+    container_name: db-postgres
     environment:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
@@ -28,7 +70,7 @@ services:
   redis:
     image: redis:8.0
     restart: always
-    container_name: db_redis_sessions
+    container_name: db-redis
     environment:
       - REDIS_PASSWORD=${REDIS_PASSWORD}
     volumes:
