@@ -1,21 +1,21 @@
 [package]
-name = "friend-service"
+name = "auth"
 version = "0.1.0"
 authors = ["@koushicsumathikumar", "@lewisrye", "@taiseiyokoshima"]
 edition = "2024"
 description = "The backend of TKL Chat, made with Rust"
-readme = "../README.md"
+readme = "../../README.md"
 repository = "https://github.com/tkl-labs/chat-core"
 license = "GPL-3.0"
 
 [dependencies]
 actix-cors = "0.7.1"
 actix-web = "4.11.0"
+bcrypt = "0.17.0"
 chrono = { version = "0.4.41", features = ["serde"] }
 diesel = { version = "2.2.10", features = ["chrono", "postgres", "uuid"] }
 diesel-async = { version = "0.5.2", features = ["postgres", "pool", "deadpool"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.140"
-uuid = { version = "1.17.0", features = ["serde", "v4"] }
 
-shared = { path = "../shared" }
+shared = { path = "../../shared" }

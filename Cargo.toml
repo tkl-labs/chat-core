@@ -1,8 +1,8 @@
 [workspace]
 members = [
-    "auth-service",
-    "friend-service",
-    "profile-service",
+    "services/auth",
+    "services/friend",
+    "services/profile",
     "shared"
 ]
 resolver = "3"
