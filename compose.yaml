@@ -6,8 +6,10 @@ services:
     container_name: svc-init
     depends_on:
       - postgres
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@postgres:5432/tkl-chat
     command: >
-      sh -c "diesel setup && diesel migration run && cargo run"
+      sh -c "diesel setup && diesel migration run"
 
   svc-auth:
     build:
