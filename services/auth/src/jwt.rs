@@ -3,6 +3,11 @@ use actix_web::http::header::ContentType;
 use actix_web::web;
 use actix_web::{HttpRequest, HttpResponse, Responder, post};
 use chrono::Utc;
+use opentelemetry::{
+    global,
+    KeyValue,
+    trace::{Span, Tracer},
+};
 
 use shared::database::PGPool;
 use shared::jwt::{JwtTokenKind, encode_jwt_token, extract_user_id};
@@ -10,6 +15,11 @@ use shared::profile::get_user_by_id;
 
 #[post("/refresh")]
 pub async fn post_refresh(pool: web::Data<PGPool>, req: HttpRequest) -> impl Responder {
+    let tracer = global::tracer("my_tracer");
+
+    let mut span = tracer.start("post_refresh");
+    span.set_attribute(KeyValue::new("rpc.method", "post_refresh"));
+    
     println!(
         "{:?}: POST /auth/refresh from {:?}",
         Utc::now().timestamp() as usize,
@@ -19,7 +29,7 @@ pub async fn post_refresh(pool: web::Data<PGPool>, req: HttpRequest) -> impl Res
     // extract user id from refresh token
     let user_id = match extract_user_id(&req, JwtTokenKind::REFRESH) {
         Ok(id) => id,
-        Err(resp) => return resp,
+        Err(resp) => { span.end(); return resp },
     };
 
     match get_user_by_id(pool, &user_id).await {
@@ -33,6 +43,8 @@ pub async fn post_refresh(pool: web::Data<PGPool>, req: HttpRequest) -> impl Res
                         Utc::now().timestamp() as usize,
                         e
                     );
+
+                    span.end();
                     return HttpResponse::InternalServerError()
                         .content_type(ContentType::json())
                         .body(r#"{"detail":"internal server error"}"#);
@@ -48,6 +60,7 @@ pub async fn post_refresh(pool: web::Data<PGPool>, req: HttpRequest) -> impl Res
                 .domain("127.0.0.1")
                 .finish();
 
+            span.end();
             HttpResponse::Ok()
                 .content_type(ContentType::json())
                 .cookie(access_cookie)
@@ -60,6 +73,7 @@ pub async fn post_refresh(pool: web::Data<PGPool>, req: HttpRequest) -> impl Res
                 e
             );
 
+            span.end();
             HttpResponse::Forbidden()
                 .content_type(ContentType::json())
                 .body(r#"{"detail":"User not found"}"#)

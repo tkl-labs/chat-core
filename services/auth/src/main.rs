@@ -7,18 +7,59 @@ mod register;
 mod routes;
 
 use crate::routes::apply_routes;
-use shared::database::{PGPool, create_database_pool};
+use shared::database::create_database_pool;
 
 use actix_cors::Cors;
 use actix_web::http::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE, HeaderName};
 use actix_web::{App, HttpServer, web};
 use chrono::Utc;
+use opentelemetry::global;
+use opentelemetry_otlp::WithExportConfig;
+use opentelemetry_sdk::{trace::SdkTracerProvider, Resource};
 use std::io::{Error, ErrorKind, Result};
 
 const SERVER_URL: &str = "0.0.0.0";
 const HTTP_SERVER_PORT: u16 = 8080;
 
-pub async fn start_http_server(pool: PGPool) -> Result<()> {
+#[actix_web::main]
+async fn main() -> Result<()> {
+    // Initialize OTLP exporter using gRPC (Tonic)
+    let exporter = opentelemetry_otlp::SpanExporter::builder()
+        .with_tonic()
+        .with_endpoint("http://jaeger:4317")
+        .build()
+        .expect("Failed to initialise OLTP exporter");
+
+    let provider = SdkTracerProvider::builder()
+        .with_simple_exporter(exporter)
+        .with_resource(
+            Resource::builder()
+                .with_service_name("auth-service")
+                .build(),
+        )
+        .build();
+
+    // Set it as the global provider
+    global::set_tracer_provider(provider);
+
+    // Initialise database connection pool
+    let result = create_database_pool(5).await;
+
+    let pool = match result {
+        Err(e) => {
+            eprintln!("{}", e);
+            return Err(Error::new(ErrorKind::Other, e));
+        }
+        Ok(pool) => {
+            println!(
+                "{:?}: Connection pool created",
+                Utc::now().timestamp() as usize
+            );
+            pool
+        }
+    };
+
+    // Run the HTTP server until application close
     println!(
         "{:?}: Starting Actix web server on {:?}:{:?}",
         Utc::now().timestamp() as usize,
@@ -50,25 +91,4 @@ pub async fn start_http_server(pool: PGPool) -> Result<()> {
     .bind((SERVER_URL, HTTP_SERVER_PORT))?
     .run()
     .await
-}
-
-#[actix_web::main]
-async fn main() -> Result<()> {
-    let result = create_database_pool(5).await;
-
-    let pool = match result {
-        Err(e) => {
-            eprintln!("{}", e);
-            return Err(Error::new(ErrorKind::Other, e));
-        }
-        Ok(pool) => {
-            println!(
-                "{:?}: Connection pool created",
-                Utc::now().timestamp() as usize
-            );
-            pool
-        }
-    };
-
-    start_http_server(pool).await
 }

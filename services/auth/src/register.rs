@@ -4,6 +4,11 @@ use actix_web::cookie::{Cookie, SameSite, time};
 use actix_web::http::header::ContentType;
 use actix_web::{HttpRequest, HttpResponse, Responder, post, web};
 use chrono::Utc;
+use opentelemetry::{
+    global,
+    KeyValue,
+    trace::{Span, Tracer},
+};
 use serde::Deserialize;
 use serde_json::to_string;
 
@@ -29,6 +34,11 @@ pub async fn post_register(
     req_body: web::Json<RegisterForm>,
     req: HttpRequest,
 ) -> impl Responder {
+    let tracer = global::tracer("my_tracer");
+
+    let mut span = tracer.start("post_register");
+    span.set_attribute(KeyValue::new("rpc.method", "post_register"));
+    
     println!(
         "{:?}: POST /auth/register from {:?}",
         Utc::now().timestamp() as usize,
@@ -38,6 +48,7 @@ pub async fn post_register(
     let verify_csrf = verify_csrf_token(&req);
 
     if !verify_csrf {
+        span.end();
         return HttpResponse::Unauthorized()
             .content_type(ContentType::json())
             .body(r#"{"detail":"csrf failed"}"#);
@@ -51,12 +62,14 @@ pub async fn post_register(
     match validate_new_username(pool.clone(), &username).await {
         Ok(valid) => {
             if !valid {
+                span.end();
                 return HttpResponse::BadRequest()
                     .content_type(ContentType::json())
                     .body(r#"{"detail":"invalid username format"}"#);
             }
         }
         Err(_) => {
+            span.end();
             return HttpResponse::BadRequest()
                 .content_type(ContentType::json())
                 .body(r#"{"detail":"username taken"}"#);
@@ -66,12 +79,14 @@ pub async fn post_register(
     match validate_email(pool.clone(), &email).await {
         Ok(valid) => {
             if !valid {
+                span.end();
                 return HttpResponse::BadRequest()
                     .content_type(ContentType::json())
                     .body(r#"{"detail":"invalid email format"}"#);
             }
         }
         Err(_) => {
+            span.end();
             return HttpResponse::BadRequest()
                 .content_type(ContentType::json())
                 .body(r#"{"detail":"email taken"}"#);
@@ -81,12 +96,14 @@ pub async fn post_register(
     match validate_phone_number(pool.clone(), &phone_number).await {
         Ok(valid) => {
             if !valid {
+                span.end();
                 return HttpResponse::BadRequest()
                     .content_type(ContentType::json())
                     .body(r#"{"detail":"invalid phone number format"}"#);
             }
         }
         Err(_) => {
+            span.end();
             return HttpResponse::BadRequest()
                 .content_type(ContentType::json())
                 .body(r#"{"detail":"phone number taken"}"#);
@@ -94,6 +111,7 @@ pub async fn post_register(
     };
 
     if !validate_password(password.to_string()) {
+        span.end();
         return HttpResponse::BadRequest()
             .content_type(ContentType::json())
             .body(r#"{"detail":"invalid password format"}"#);
@@ -108,6 +126,7 @@ pub async fn post_register(
                 Utc::now().timestamp() as usize,
                 e
             );
+            span.end();
             return HttpResponse::InternalServerError()
                 .content_type(ContentType::json())
                 .body(r#"{"detail":"an unexpected error occurred"}"#);
@@ -165,6 +184,7 @@ pub async fn post_register(
                         e
                     );
 
+                    span.end();
                     HttpResponse::Unauthorized()
                         .content_type(ContentType::json())
                         .body(r#"{"detail":"incorrect login details"}"#)
@@ -177,6 +197,8 @@ pub async fn post_register(
                 Utc::now().timestamp() as usize,
                 e
             );
+
+            span.end();
             HttpResponse::InternalServerError()
                 .content_type(ContentType::json())
                 .body(r#"{"detail":"an unexpected error occurred"}"#)
