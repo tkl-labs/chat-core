@@ -4,9 +4,9 @@ services:
       context: .
       dockerfile: services/init/Dockerfile
     container_name: svc-init-dev
-    restart: "no"
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     environment:
       - DATABASE_URL=postgresql://postgres:password@postgres:5432/tkl-chat
     command: >
@@ -21,6 +21,9 @@ services:
       - postgres
     env_file:
       - .env
+    environment:
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
+    restart: unless-stopped
 
   svc-friend:
     build:
@@ -31,6 +34,9 @@ services:
       - postgres
     env_file:
       - .env
+    environment:
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
+    restart: unless-stopped
 
   svc-profile:
     build:
@@ -41,9 +47,13 @@ services:
       - postgres
     env_file:
       - .env
+    environment:
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
+    restart: unless-stopped
 
   nginx:
     image: nginx:1.27
+    restart: unless-stopped
     container_name: svc-nginx-dev
     ports:
       - "8080:80"
@@ -56,7 +66,7 @@ services:
       
   mongo:
     image: mongo:8.0-noble
-    restart: always
+    restart: unless-stopped
     container_name: db-mongo-dev
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME}
@@ -69,7 +79,7 @@ services:
 
   postgres:
     image: postgres:17.5
-    restart: always
+    restart: unless-stopped
     container_name: db-postgres-dev
     environment:
       - POSTGRES_USER=${POSTGRES_USER}
@@ -79,30 +89,45 @@ services:
       - postgres-data-dev:/var/lib/postgresql/data
     ports:
       - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d tkl-chat"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
 
-  redis:
-    image: redis:8.0
-    restart: always
-    container_name: db-redis-dev
-    environment:
-      - REDIS_PASSWORD=${REDIS_PASSWORD}
-    volumes:
-      - redis-data-dev:/data
-    command: sh -c "redis-server --requirepass ${REDIS_PASSWORD}"
-    ports:
-      - "6379:6379"
+  # redis:
+  #   image: redis:8.0
+  #   restart: always
+  #   container_name: db-redis-dev
+  #   environment:
+  #     - REDIS_PASSWORD=${REDIS_PASSWORD}
+  #   volumes:
+  #     - redis-data-dev:/data
+  #   command: sh -c "redis-server --requirepass ${REDIS_PASSWORD}"
+  #   ports:
+  #     - "6379:6379"
     
   jaeger:
-    image: jaegertracing/jaeger:2.6.0
+    image: jaegertracing/all-in-one:1.69.0
     container_name: svc-jaeger-dev
     ports:
-      - "16686:16686"
-      - "4317:4317"
-      - "4318:4318"
+      - "16686:16686" # Jaeger UI
+      - "4317:4317" # OpenTelemetry gRPC
+      - "4318:4318" # OpenTelemetry HTTP
+      - "5778:5778" # Configuration service
+      - "9411:9411" # Zipkin compatibility
     environment:
       - LOG_LEVEL=debug
+      - COLLECTOR_OTLP_ENABLED=true
+      - OTLP_HTTP_ENDPOINT=http://localhost:4318
+      - OTLP_GRPC_ENDPOINT=http://localhost:4317
+      - SPAN_STORAGE_TYPE=memory
+      - JAEGER_SAMPLER_TYPE=probabilistic
+      - JAEGER_SAMPLER_PARAM=1.0
+      - JAEGER_REPORTER_FLUSH_INTERVAL=5000
+    restart: unless-stopped
 
 volumes:
   mongo-data-dev:
   postgres-data-dev:
-  redis-data-dev:
+  # redis-data-dev:
