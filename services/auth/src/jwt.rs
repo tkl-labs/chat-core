@@ -4,8 +4,7 @@ use actix_web::web;
 use actix_web::{HttpRequest, HttpResponse, Responder, post};
 use chrono::Utc;
 use opentelemetry::{
-    global,
-    KeyValue,
+    KeyValue, global,
     trace::{Span, Tracer},
 };
 
@@ -19,7 +18,7 @@ pub async fn post_refresh(pool: web::Data<PGPool>, req: HttpRequest) -> impl Res
 
     let mut span = tracer.start("post_refresh");
     span.set_attribute(KeyValue::new("rpc.method", "post_refresh"));
-    
+
     println!(
         "{:?}: POST /auth/refresh from {:?}",
         Utc::now().timestamp() as usize,
@@ -29,7 +28,10 @@ pub async fn post_refresh(pool: web::Data<PGPool>, req: HttpRequest) -> impl Res
     // extract user id from refresh token
     let user_id = match extract_user_id(&req, JwtTokenKind::REFRESH) {
         Ok(id) => id,
-        Err(resp) => { span.end(); return resp },
+        Err(resp) => {
+            span.end();
+            return resp;
+        }
     };
 
     match get_user_by_id(pool, &user_id).await {

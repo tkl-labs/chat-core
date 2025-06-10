@@ -1,8 +1,7 @@
 use actix_web::{HttpRequest, HttpResponse, Responder, get};
 use chrono::Utc;
 use opentelemetry::{
-    global,
-    KeyValue,
+    KeyValue, global,
     trace::{Span, Tracer},
 };
 use serde_json::to_string;
@@ -15,7 +14,7 @@ pub async fn get_csrf(req: HttpRequest) -> impl Responder {
 
     let mut span = tracer.start("get_csrf");
     span.set_attribute(KeyValue::new("rpc.method", "get_csrf"));
-    
+
     println!(
         "{:?}: GET /auth/csrf from {:?}",
         Utc::now().timestamp() as usize,
