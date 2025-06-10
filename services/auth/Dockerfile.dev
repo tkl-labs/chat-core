@@ -12,7 +12,7 @@ FROM debian:bookworm-slim
 # Copy the built binary from the builder stage
 COPY --from=builder /usr/src/app/target/debug/auth /usr/local/bin/auth
 
-RUN apt-get update && apt-get upgrade -y && apt-get install libpq5 -y
+RUN apt-get update && apt-get upgrade -y && apt-get install libpq5 -y && rm -rf /var/lib/apt/lists/*
 
 # Expose ports, set entrypoint
 EXPOSE 8080

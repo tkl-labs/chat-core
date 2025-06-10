@@ -2,11 +2,21 @@ use actix_web::cookie::{Cookie, SameSite, time};
 use actix_web::http::header::ContentType;
 use actix_web::{HttpRequest, HttpResponse, Responder, post};
 use chrono::Utc;
+use opentelemetry::{
+    global,
+    KeyValue,
+    trace::{Span, Tracer},
+};
 
 use shared::jwt::{JwtTokenKind, encode_jwt_token};
 
 #[post("/logout")]
 pub async fn post_logout(req: HttpRequest) -> impl Responder {
+    let tracer = global::tracer("my_tracer");
+
+    let mut span = tracer.start("post_logout");
+    span.set_attribute(KeyValue::new("rpc.method", "post_logout"));
+
     let access_token = encode_jwt_token("".to_string(), JwtTokenKind::ACCESS);
     let refresh_token = encode_jwt_token("".to_string(), JwtTokenKind::REFRESH);
 
@@ -36,14 +46,18 @@ pub async fn post_logout(req: HttpRequest) -> impl Responder {
                 req.peer_addr()
             );
 
+            span.end();
             HttpResponse::Ok()
                 .content_type(ContentType::json())
                 .cookie(access_cookie)
                 .cookie(refresh_cookie)
                 .body(r#"{"detail":"logout successful"}"#)
         }
-        _ => HttpResponse::InternalServerError()
+        _ => {
+            span.end();
+            HttpResponse::InternalServerError()
             .content_type(ContentType::json())
-            .body(r#"{"detail":"failed to remove tokens"}"#),
+            .body(r#"{"detail":"failed to remove tokens"}"#)
+        }
     }
 }

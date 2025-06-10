@@ -11,13 +11,13 @@ Follow the steps below to get up and running with TKL Chat:
 ### 1. Start Docker Containers
 
 ```bash
-docker compose -f "compose.yaml" -p "chat-core" up -d
+docker compose -f "compose.yaml" -p "chat" up -d
 ```
 
 This command will launch all necessary services defined in `compose.yaml`. *Alternatively, to run the debug version of the application (for smaller compile times), there is a separate Docker Compose file. To run the dev version:*
 
 ```bash
-docker compose -f "compose.dev.yaml" -p "chat-core-dev" up -d
+docker compose -f "compose.dev.yaml" -p "chat-dev" up -d
 ```
 
 > ⚠️ Without nginx running on Docker, the ports for each service will differ while developing, please keep this in mind.
