@@ -26,10 +26,26 @@
             fd
             pkg-config
             postgresql
+
+            openssl
+
+            gtk4
+            webkitgtk_4_1
+
+
+
+            dbus
+            webkitgtk
+            glib
+            nodejs_latest
+
+            libsoup_3
+
           ];
 
         shellHook = ''
           export SHELL=${pkgs.fish}/bin/fish
+          export PKG_CONFIG_PATH=${pkgs.webkitgtk_4_1.dev}/lib/pkgconfig
         '';
 
       };
