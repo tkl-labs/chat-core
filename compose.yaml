@@ -1,21 +1,17 @@
 services:
   svc-init:
-    build:
-      context: .
-      dockerfile: services/init/Dockerfile
+    image: lewisrye/tklchat-init:0.1.0-build1
     container_name: svc-init
-    restart: "no"
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     environment:
       - DATABASE_URL=postgresql://postgres:password@postgres:5432/tkl-chat
     command: >
       sh -c "diesel setup && diesel migration run"
       
   svc-auth:
-    build:
-      context: .
-      dockerfile: services/auth/Dockerfile
+    image: lewisrye/tklchat-auth:0.1.0-build1
     container_name: svc-auth
     depends_on:
       - postgres
@@ -23,9 +19,7 @@ services:
       - .env
 
   svc-friend:
-    build:
-      context: .
-      dockerfile: services/friend/Dockerfile
+    image: lewisrye/tklchat-friend:0.1.0-build1
     container_name: svc-friend
     depends_on:
       - postgres
@@ -33,9 +27,7 @@ services:
       - .env
 
   svc-profile:
-    build:
-      context: .
-      dockerfile: services/profile/Dockerfile
+    image: lewisrye/tklchat-profile:0.1.0-build1
     container_name: svc-profile
     depends_on:
       - postgres
@@ -79,6 +71,11 @@ services:
       - postgres-data-dev:/var/lib/postgresql/data
     ports:
       - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d tkl-chat"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
 
   redis:
     image: redis:8.0
@@ -93,14 +90,24 @@ services:
       - "6379:6379"
     
   jaeger:
-    image: jaegertracing/jaeger:2.6.0
+    image: jaegertracing/all-in-one:1.69.0
     container_name: svc-jaeger
     ports:
-      - "16686:16686"
-      - "4317:4317"
-      - "4318:4318"
+      - "16686:16686" # Jaeger UI
+      - "4317:4317" # OpenTelemetry gRPC
+      - "4318:4318" # OpenTelemetry HTTP
+      - "5778:5778" # Configuration service
+      - "9411:9411" # Zipkin compatibility
     environment:
       - LOG_LEVEL=debug
+      - COLLECTOR_OTLP_ENABLED=true
+      - OTLP_HTTP_ENDPOINT=http://localhost:4318
+      - OTLP_GRPC_ENDPOINT=http://localhost:4317
+      - SPAN_STORAGE_TYPE=memory
+      - JAEGER_SAMPLER_TYPE=probabilistic
+      - JAEGER_SAMPLER_PARAM=1.0
+      - JAEGER_REPORTER_FLUSH_INTERVAL=5000
+    restart: unless-stopped
 
 volumes:
   mongo-data-dev:
