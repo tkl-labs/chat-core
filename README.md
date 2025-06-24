@@ -1,4 +1,4 @@
-# 🗨️ TKL Chat — A Cross-Platform Chat Room
+# TKL Chat — A Cross-Platform Chat Room
 
 **TKL Chat** is a modern, cross-platform chat room application built with a Rust backend and TypeScript frontend. It supports real-time messaging via WebSockets and is containerised using Docker for easy setup.
 
@@ -14,7 +14,7 @@ Follow the steps below to get up and running with TKL Chat:
 docker compose -f "compose.yaml" -p "chat" up -d
 ```
 
-This command will launch all necessary services defined in `compose.yaml`. *Alternatively, to run the debug version of the application (for smaller compile times), there is a separate Docker Compose file. To run the dev version:*
+This command will launch all necessary services defined in `compose.yaml`. *Alternatively, to run the application without uploading images to Docker Hub, there is a separate Docker Compose file. To run the dev version:*
 
 ```bash
 docker compose -f "compose.dev.yaml" -p "chat-dev" up -d
@@ -22,7 +22,11 @@ docker compose -f "compose.dev.yaml" -p "chat-dev" up -d
 
 > ⚠️ Without nginx running on Docker, the ports for each service will differ while developing, please keep this in mind.
 
-### 2. Initialize the Database (not required if running Docker Compose)
+### 2. Access the Application
+
+Now, from your browser or the TKL Chat app, you can run the application correctly. The API is accessible at `127.0.0.1:8080`.
+
+## Initialising the Database (not required if running Docker Compose)
 
 ```bash
 cargo install diesel_cli --no-default-features --features postgres
@@ -32,7 +36,15 @@ diesel migration run
 
 This command will setup the PostgreSQL database.
 
-### 3. Tear Down Docker Containers and Volumes
+## Building the service images
+
+To build each service's Docker image, in the root directory, run:
+
+```bash
+docker build -f services/{service_name}/Dockerfile -t {your_username}/tklchat-{service_name}:0.1.0-build1 .
+```
+
+## Cleaning Up
 
 To remove containers **and** their volumes completely:
 

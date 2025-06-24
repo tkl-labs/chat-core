@@ -7,6 +7,7 @@ jobs:
   fmt:
     name: Lint with cargo fmt
     runs-on: ubuntu-latest
+    if: github.actor != 'dependabot[bot]'
     steps:
       - name: Checkout PR branch
         uses: actions/checkout@v4

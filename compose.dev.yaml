@@ -95,17 +95,17 @@ services:
       timeout: 5s
       retries: 6
 
-  # redis:
-  #   image: redis:8.0
-  #   restart: always
-  #   container_name: db-redis-dev
-  #   environment:
-  #     - REDIS_PASSWORD=${REDIS_PASSWORD}
-  #   volumes:
-  #     - redis-data-dev:/data
-  #   command: sh -c "redis-server --requirepass ${REDIS_PASSWORD}"
-  #   ports:
-  #     - "6379:6379"
+  redis:
+    image: redis:8.0
+    restart: always
+    container_name: db-redis-dev
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+    volumes:
+      - redis-data-dev:/data
+    command: sh -c "redis-server --requirepass ${REDIS_PASSWORD}"
+    ports:
+      - "6379:6379"
     
   jaeger:
     image: jaegertracing/all-in-one:1.69.0
@@ -130,4 +130,4 @@ services:
 volumes:
   mongo-data-dev:
   postgres-data-dev:
-  # redis-data-dev:
+  redis-data-dev:

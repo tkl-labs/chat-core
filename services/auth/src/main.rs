@@ -15,7 +15,7 @@ use actix_web::{App, HttpServer, web};
 use chrono::Utc;
 use opentelemetry::global;
 use opentelemetry_otlp::WithExportConfig;
-use opentelemetry_sdk::{trace::SdkTracerProvider, Resource};
+use opentelemetry_sdk::{Resource, trace::SdkTracerProvider};
 use std::io::{Error, ErrorKind, Result};
 
 const SERVER_URL: &str = "0.0.0.0";

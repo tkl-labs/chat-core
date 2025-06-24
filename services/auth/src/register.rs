@@ -5,8 +5,7 @@ use actix_web::http::header::ContentType;
 use actix_web::{HttpRequest, HttpResponse, Responder, post, web};
 use chrono::Utc;
 use opentelemetry::{
-    global,
-    KeyValue,
+    KeyValue, global,
     trace::{Span, Tracer},
 };
 use serde::Deserialize;
@@ -38,7 +37,7 @@ pub async fn post_register(
 
     let mut span = tracer.start("post_register");
     span.set_attribute(KeyValue::new("rpc.method", "post_register"));
-    
+
     println!(
         "{:?}: POST /auth/register from {:?}",
         Utc::now().timestamp() as usize,

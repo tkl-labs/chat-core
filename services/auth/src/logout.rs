@@ -3,8 +3,7 @@ use actix_web::http::header::ContentType;
 use actix_web::{HttpRequest, HttpResponse, Responder, post};
 use chrono::Utc;
 use opentelemetry::{
-    global,
-    KeyValue,
+    KeyValue, global,
     trace::{Span, Tracer},
 };
 
@@ -56,8 +55,8 @@ pub async fn post_logout(req: HttpRequest) -> impl Responder {
         _ => {
             span.end();
             HttpResponse::InternalServerError()
-            .content_type(ContentType::json())
-            .body(r#"{"detail":"failed to remove tokens"}"#)
+                .content_type(ContentType::json())
+                .body(r#"{"detail":"failed to remove tokens"}"#)
         }
     }
 }

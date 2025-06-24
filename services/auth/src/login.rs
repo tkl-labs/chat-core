@@ -6,9 +6,7 @@ use actix_web::{HttpRequest, HttpResponse, Responder, post, web};
 use chrono::Utc;
 use opentelemetry::trace::TraceContextExt;
 use opentelemetry::{
-    Context,
-    global,
-    KeyValue,
+    Context, KeyValue, global,
     trace::{Span, Tracer},
 };
 use serde::Deserialize;
@@ -43,7 +41,10 @@ pub async fn post_login(
         req.peer_addr()
     );
 
-    let mut csrf_span = tracer.start_with_context("verify_csrf_token", &Context::current().with_span(init_span));
+    let mut csrf_span = tracer.start_with_context(
+        "verify_csrf_token",
+        &Context::current().with_span(init_span),
+    );
     csrf_span.set_attribute(KeyValue::new("rpc.method", "verify_csrf_token"));
     let verify_csrf = verify_csrf_token(&req);
 
@@ -58,7 +59,10 @@ pub async fn post_login(
     let username = req_body.username.trim();
     let password = &req_body.password;
 
-    let mut validate_username_span = tracer.start_with_context("validate_existing_username", &Context::current().with_span(csrf_span));
+    let mut validate_username_span = tracer.start_with_context(
+        "validate_existing_username",
+        &Context::current().with_span(csrf_span),
+    );
     validate_username_span.set_attribute(KeyValue::new("rpc.method", "validate_existing_username"));
     if !validate_existing_username(&username) {
         validate_username_span.end();
@@ -68,7 +72,10 @@ pub async fn post_login(
     }
     validate_username_span.end();
 
-    let mut validate_password_span = tracer.start_with_context("validate_existing_password", &Context::current().with_span(validate_username_span));
+    let mut validate_password_span = tracer.start_with_context(
+        "validate_existing_password",
+        &Context::current().with_span(validate_username_span),
+    );
     validate_password_span.set_attribute(KeyValue::new("rpc.method", "validate_existing_password"));
     if !validate_password(password.to_string()) {
         validate_password_span.end();
@@ -78,7 +85,10 @@ pub async fn post_login(
     }
     validate_password_span.end();
 
-    let mut auth_span = tracer.start_with_context("authenticate_user", &Context::current().with_span(validate_password_span));
+    let mut auth_span = tracer.start_with_context(
+        "authenticate_user",
+        &Context::current().with_span(validate_password_span),
+    );
     auth_span.set_attribute(KeyValue::new("rpc.method", "authenticate_user"));
     match authenticate_user(pool, username, password).await {
         Ok(user) => {
