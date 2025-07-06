@@ -14,7 +14,7 @@ base64 = "0.22.1"
 chrono = { version = "0.4.41", features = ["serde"] }
 csrf = "0.5.0"
 diesel = { version = "2.2.11", features = ["chrono", "postgres", "uuid"] }
-diesel-async = { version = "0.5.2", features = ["postgres", "pool", "deadpool"] }
+diesel-async = { version = "0.6.1", features = ["postgres", "pool", "deadpool"] }
 dotenv = "0.15.0"
 image = "0.25.6"
 jsonwebtoken = "9"
