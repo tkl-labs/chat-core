@@ -13,7 +13,7 @@ actix-cors = "0.7.1"
 actix-web = "4.11.0"
 bcrypt = "0.17.0"
 chrono = { version = "0.4.41", features = ["serde"] }
-diesel = { version = "2.2.11", features = ["chrono", "postgres", "uuid"] }
+diesel = { version = "2.2.12", features = ["chrono", "postgres", "uuid"] }
 diesel-async = { version = "0.5.2", features = ["postgres", "pool", "deadpool"] }
 opentelemetry = "0.30.0"
 opentelemetry-otlp = { version = "0.30.0", features = ["grpc-tonic", "zstd-tonic"] }
