@@ -15,7 +15,7 @@ chrono = { version = "0.4.41", features = ["serde"] }
 diesel = { version = "2.2.12", features = ["chrono", "postgres", "uuid"] }
 diesel-async = { version = "0.6.1", features = ["postgres", "pool", "deadpool"] }
 serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0.142"
+serde_json = "1.0.143"
 uuid = { version = "1.18.0", features = ["serde", "v4"] }
 
 shared = { path = "../../shared" }
