@@ -17,7 +17,7 @@ diesel = { version = "2.2.12", features = ["chrono", "postgres", "uuid"] }
 diesel-async = { version = "0.6.1", features = ["postgres", "pool", "deadpool"] }
 opentelemetry = "0.30.0"
 opentelemetry-otlp = { version = "0.30.0", features = ["grpc-tonic", "zstd-tonic"] }
-opentelemetry_sdk = "0.30.0"
+opentelemetry_sdk = "0.31.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.142"
 tokio = { version = "1", features = ["full"] }
